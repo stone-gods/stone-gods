@@ -60,12 +60,13 @@ model VerificationToken {
 // ── Game state (linked to User) ──
 
 model GameSession {
-  id         String    @id @default(cuid())
-  userId     String    @unique
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt  DateTime  @default(now())
-  lastSpinAt DateTime?
-  spins      Spin[]
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+  lastSpinAt        DateTime?
+  spinPeriodStartAt DateTime?
+  spins             Spin[]
 }
 
 model Spin {

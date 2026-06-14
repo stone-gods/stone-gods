@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { canSpinToday, nextSpinAt, startOfNextUtcDay } from "@/lib/daily-spin";
+import {
+  cooldownUntilFromLastSpin,
+  getDailySpinLimit,
+} from "@/lib/spin-allowance";
+import { getSpinAllowanceForSession } from "@/lib/spin-allowance-server";
 import { isDevUnlimitedSpins } from "@/lib/dev";
 import { ensureGameSession, requireAuthUserId } from "@/lib/game-session";
 import { prisma } from "@/lib/prisma";
@@ -23,6 +27,7 @@ export async function GET() {
   const gameSession = await ensureGameSession(userId);
   const now = new Date();
   const unlimited = isDevUnlimitedSpins();
+  const dailyLimit = getDailySpinLimit();
 
   const session = await prisma.gameSession.findUnique({
     where: { id: gameSession.id },
@@ -34,8 +39,20 @@ export async function GET() {
     },
   });
 
-  const lastSpin = session?.spins[0] ?? null;
-  const canSpin = unlimited || canSpinToday(session?.lastSpinAt, now);
+  if (!session) {
+    return NextResponse.json({ error: "Game session not found" }, { status: 500 });
+  }
+
+  const allowance = unlimited
+    ? {
+        canSpin: true,
+        spinsRemaining: dailyLimit,
+        nextSpinAt: null as Date | null,
+        spinsInPeriod: 0,
+      }
+    : await getSpinAllowanceForSession(session, now);
+
+  const lastSpin = session.spins[0] ?? null;
 
   const uncollectedWin = await prisma.spin.findFirst({
     where: {
@@ -48,10 +65,10 @@ export async function GET() {
   });
 
   const response: SpinStatusResponse = {
-    canSpin,
-    nextSpinAt: unlimited
-      ? null
-      : (nextSpinAt(session?.lastSpinAt, now)?.toISOString() ?? null),
+    canSpin: allowance.canSpin,
+    spinsRemaining: allowance.spinsRemaining,
+    dailySpinLimit: dailyLimit,
+    nextSpinAt: unlimited ? null : (allowance.nextSpinAt?.toISOString() ?? null),
     uncollectedWin: uncollectedWin ? { spinId: uncollectedWin.id } : null,
     lastSpin: lastSpin
       ? {
@@ -73,6 +90,7 @@ export async function POST() {
   const gameSession = await ensureGameSession(userId);
   const now = new Date();
   const unlimited = isDevUnlimitedSpins();
+  const dailyLimit = getDailySpinLimit();
 
   const session = await prisma.gameSession.findUnique({
     where: { id: gameSession.id },
@@ -82,14 +100,17 @@ export async function POST() {
     return NextResponse.json({ error: "Game session not found" }, { status: 500 });
   }
 
-  if (!unlimited && !canSpinToday(session.lastSpinAt, now)) {
-    return NextResponse.json(
-      {
-        error: "Daily spin already used",
-        nextSpinAt: nextSpinAt(session.lastSpinAt, now)?.toISOString() ?? null,
-      },
-      { status: 429 },
-    );
+  if (!unlimited) {
+    const allowance = await getSpinAllowanceForSession(session, now);
+    if (!allowance.canSpin) {
+      return NextResponse.json(
+        {
+          error: "No spins remaining",
+          nextSpinAt: allowance.nextSpinAt?.toISOString() ?? null,
+        },
+        { status: 429 },
+      );
+    }
   }
 
   const { outcome, reels } = resolveSpin();
@@ -113,11 +134,29 @@ export async function POST() {
     return created;
   });
 
+  if (unlimited) {
+    return NextResponse.json({
+      spinId: spin.id,
+      outcome,
+      reels,
+      canSpinAgainAt: null,
+      spinsRemaining: dailyLimit,
+      message: outcomeMessage(outcome, unlimited),
+    });
+  }
+
+  const updatedAllowance = await getSpinAllowanceForSession(session, now);
+  const spinsAfter = updatedAllowance.spinsInPeriod;
+  const canSpinAgain = updatedAllowance.canSpin;
+
   return NextResponse.json({
     spinId: spin.id,
     outcome,
     reels,
-    canSpinAgainAt: unlimited ? null : startOfNextUtcDay(now).toISOString(),
+    canSpinAgainAt: canSpinAgain
+      ? null
+      : cooldownUntilFromLastSpin(spin.createdAt).toISOString(),
+    spinsRemaining: updatedAllowance.spinsRemaining,
     message: outcomeMessage(outcome, unlimited),
   });
 }

@@ -10,6 +10,30 @@ export function startOfNextUtcDay(date: Date): Date {
   return start;
 }
 
+export function getDailySpinLimit(): number {
+  const raw = process.env.DAILY_SPIN_LIMIT?.trim();
+  const parsed = raw ? Number.parseInt(raw, 10) : 1;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+export function canSpinMore(usedToday: number, limit: number): boolean {
+  return usedToday < limit;
+}
+
+export function spinsRemaining(usedToday: number, limit: number): number {
+  return Math.max(0, limit - usedToday);
+}
+
+export function nextSpinAtWhenLimited(
+  usedToday: number,
+  limit: number,
+  now = new Date(),
+): Date | null {
+  if (canSpinMore(usedToday, limit)) return null;
+  return startOfNextUtcDay(now);
+}
+
+/** @deprecated use canSpinMore with spin count */
 export function canSpinToday(
   lastSpinAt: Date | null | undefined,
   now = new Date(),
@@ -18,6 +42,7 @@ export function canSpinToday(
   return lastSpinAt < startOfUtcDay(now);
 }
 
+/** @deprecated use nextSpinAtWhenLimited with spin count */
 export function nextSpinAt(
   lastSpinAt: Date | null | undefined,
   now = new Date(),

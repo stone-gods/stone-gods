@@ -1,8 +1,13 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth from "next-auth";
 import Discord from "next-auth/providers/discord";
-import { getAuthEnv } from "@/lib/auth-env";
+import { getAuthEnv, resolveAuthUrl } from "@/lib/auth-env";
 import { prisma } from "@/lib/prisma";
+
+const resolvedAuthUrl = resolveAuthUrl();
+if (resolvedAuthUrl) {
+  process.env.AUTH_URL = resolvedAuthUrl;
+}
 
 const authEnv = getAuthEnv();
 

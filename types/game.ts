@@ -24,11 +24,14 @@ export type SpinApiResponse = {
   outcome: SpinOutcome;
   reels: ReelGrid;
   canSpinAgainAt: string | null;
+  spinsRemaining?: number;
   message: string;
 };
 
 export type SpinStatusResponse = {
   canSpin: boolean;
+  spinsRemaining: number;
+  dailySpinLimit: number;
   nextSpinAt: string | null;
   uncollectedWin: {
     spinId: string;

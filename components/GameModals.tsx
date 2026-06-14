@@ -158,6 +158,8 @@ export default function GameModals({
     lastSpinResult &&
       !postSpinDismissed &&
       lastSpinResult.outcome !== "NFT_WIN" &&
+      spinStatus &&
+      !spinStatus.canSpin &&
       !postSpinCountdown.done,
   );
 
@@ -301,6 +303,7 @@ export default function GameModals({
     lastSpinResult &&
     !postSpinDismissed &&
     lastSpinResult.outcome !== "NFT_WIN" &&
+    !spinStatus.canSpin &&
     !postSpinCountdown.done
   ) {
     return (
@@ -316,11 +319,14 @@ export default function GameModals({
   }
 
   if (spinStatus.canSpin && !welcomeDismissed) {
+    const n = spinStatus.spinsRemaining;
     return (
       <div className="game-modal-backdrop">
         <div className="game-modal" role="dialog" aria-modal="true">
           <ModalTitle />
-          <p className="game-modal__text game-modal__text--highlight">You have 1 free spin</p>
+          <p className="game-modal__text game-modal__text--highlight">
+            You have {n} free spin{n === 1 ? "" : "s"}
+          </p>
           <button
             type="button"
             className="game-modal__continue-btn"

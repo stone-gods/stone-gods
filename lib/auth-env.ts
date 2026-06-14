@@ -10,6 +10,25 @@ export type AuthEnv = {
   url: string | undefined;
 };
 
+/** Prefer Vercel host in production — avoids stale localhost AUTH_URL on deploy. */
+export function resolveAuthUrl(): string | undefined {
+  const explicit = trim(process.env.AUTH_URL);
+
+  if (process.env.VERCEL) {
+    const host =
+      trim(process.env.VERCEL_PROJECT_PRODUCTION_URL) ??
+      trim(process.env.VERCEL_URL);
+    if (host) {
+      const vercelUrl = host.startsWith("http") ? host : `https://${host}`;
+      if (!explicit || explicit.includes("localhost")) {
+        return vercelUrl;
+      }
+    }
+  }
+
+  return explicit;
+}
+
 export function getAuthEnv(): AuthEnv | null {
   const secret = trim(process.env.AUTH_SECRET);
   const discordClientId = trim(process.env.AUTH_DISCORD_ID);
@@ -23,7 +42,7 @@ export function getAuthEnv(): AuthEnv | null {
     secret,
     discordClientId,
     discordClientSecret,
-    url: trim(process.env.AUTH_URL),
+    url: resolveAuthUrl(),
   };
 }
 
