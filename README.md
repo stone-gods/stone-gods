@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stone Gods Slots
 
-## Getting Started
+Daily promo slot game for the Stone Gods NFT project. Deployed on Vercel with serverless API routes.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router)
+- Prisma 7 + PostgreSQL (Neon recommended, pooled URL on Vercel)
+- Framer Motion for reel animation
+
+## Setup
+
+1. Copy env and set your database URL:
+
+```bash
+cp .env.example .env
+```
+
+2. Create a Postgres database ([Neon](https://neon.tech) works well with Vercel). Use the **pooled** connection string for `DATABASE_URL`.
+
+3. Run migrations:
+
+```bash
+npm run db:migrate
+```
+
+4. Start dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/spin` | Spin status (can spin today?, last result) |
+| `POST` | `/api/spin` | Execute daily spin (~1% NFT win rate) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Spins are **server-authoritative** — outcome is decided before the UI animates.
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+- `npm run verify:win-rate` — simulate 10k spins to check ~1% win rate
+- `npm run db:push` — push schema without migration (dev only)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Vercel deploy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Set `DATABASE_URL` (pooled) in project env. Build runs `prisma generate && prisma migrate deploy && next build`.
 
-## Deploy on Vercel
+## Phase 2+ (not yet implemented)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Discord / X login
+- Solana wallet claim for NFT winners
