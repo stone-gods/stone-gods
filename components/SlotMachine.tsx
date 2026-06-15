@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import StoneDrumSurface from "@/components/StoneDrumSurface";
 import ReelSymbol from "@/components/ReelSymbol";
-import { ALL_SYMBOLS } from "@/lib/symbols";
+import { ALL_SYMBOLS, PAYLINE_INDEX } from "@/lib/symbols";
 import type { ReelGrid, SpinApiResponse, SpinStatusResponse, SymbolId } from "@/types/game";
 
 const VISIBLE = 3;
@@ -32,9 +32,14 @@ function stripOffset(strip: SymbolId[], faceH: number): number {
 type SlotMachineProps = {
   onSpinComplete?: (result: SpinApiResponse) => void;
   spinDisabled?: boolean;
+  celebratingWin?: boolean;
 };
 
-export default function SlotMachine({ onSpinComplete, spinDisabled = false }: SlotMachineProps) {
+export default function SlotMachine({
+  onSpinComplete,
+  spinDisabled = false,
+  celebratingWin = false,
+}: SlotMachineProps) {
   const [reels, setReels] = useState<ReelGrid>([
     ["RUNE_BLUE", "STONE", "ARTIFACT_BLUE"],
     ["ARTIFACT_ORANGE", "GOD_1", "RUNE_GREEN"],
@@ -132,7 +137,7 @@ export default function SlotMachine({ onSpinComplete, spinDisabled = false }: Sl
   }
 
   return (
-    <div className="slot slot--layered">
+    <div className={`slot slot--layered${celebratingWin ? " slot--win-celebration" : ""}`}>
       <svg className="slot__defs" aria-hidden width="0" height="0">
         <defs>
           <clipPath id="reel-barrel" clipPathUnits="objectBoundingBox">
@@ -150,6 +155,7 @@ export default function SlotMachine({ onSpinComplete, spinDisabled = false }: Sl
                 const isAnimating = stripAnimating[reelIdx];
                 const scrollY = offsets[reelIdx] ?? 0;
                 const duration = reelSpinDuration(reelIdx);
+                const visibleStart = strip.length - VISIBLE;
                 return (
                   <div key={reelIdx} className="slot__reel-unit">
                     {reelIdx > 0 && <div className="slot__reel-gap" aria-hidden />}
@@ -173,11 +179,30 @@ export default function SlotMachine({ onSpinComplete, spinDisabled = false }: Sl
                           <div className="slot__strip-stone" aria-hidden>
                             <StoneDrumSurface reelIdx={reelIdx} height={strip.length * faceH} />
                           </div>
-                          {strip.map((symbolId, i) => (
-                            <div key={i} className="slot__drum-segment">
-                              <ReelSymbol symbolId={symbolId} />
-                            </div>
-                          ))}
+                          {strip.map((symbolId, i) => {
+                            const rowInWindow = i - visibleStart;
+                            const isPaylineWin =
+                              celebratingWin &&
+                              rowInWindow >= 0 &&
+                              rowInWindow < VISIBLE &&
+                              rowInWindow === PAYLINE_INDEX;
+
+                            return (
+                              <div
+                                key={i}
+                                className={`slot__drum-segment${
+                                  isPaylineWin ? " slot__drum-segment--payline-win" : ""
+                                }`}
+                                style={
+                                  isPaylineWin
+                                    ? ({ ["--win-reel-delay" as string]: `${reelIdx * 0.12}s` } as CSSProperties)
+                                    : undefined
+                                }
+                              >
+                                <ReelSymbol symbolId={symbolId} />
+                              </div>
+                            );
+                          })}
                         </div>
                         <div className="slot__drum-rim" aria-hidden />
                         <div className="slot__drum-shade" aria-hidden />

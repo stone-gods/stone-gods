@@ -3,9 +3,11 @@
 import { useRef, useState } from "react";
 import GameModals, { type PostSpinPhase } from "@/components/GameModals";
 import SlotMachine from "@/components/SlotMachine";
+import WinFireworks from "@/components/WinFireworks";
 import type { SpinApiResponse } from "@/types/game";
 
 const RESULT_SPLASH_MS = 3000;
+const WIN_CELEBRATION_MS = 5000;
 
 export default function GameShell() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -13,29 +15,39 @@ export default function GameShell() {
   const [postSpinDismissed, setPostSpinDismissed] = useState(false);
   const [postSpinPhase, setPostSpinPhase] = useState<PostSpinPhase>("idle");
   const [spinBlocked, setSpinBlocked] = useState(true);
-  const splashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const phaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearPhaseTimer() {
+    if (phaseTimerRef.current) {
+      clearTimeout(phaseTimerRef.current);
+      phaseTimerRef.current = null;
+    }
+  }
 
   function handleSpinComplete(result: SpinApiResponse) {
-    if (splashTimerRef.current) {
-      clearTimeout(splashTimerRef.current);
-      splashTimerRef.current = null;
-    }
+    clearPhaseTimer();
 
     setLastSpinResult(result);
     setPostSpinDismissed(false);
-    setRefreshKey((k) => k + 1);
 
     if (result.outcome === "NFT_WIN") {
-      setPostSpinPhase("idle");
+      setPostSpinPhase("win-celebration");
+      phaseTimerRef.current = setTimeout(() => {
+        phaseTimerRef.current = null;
+        setPostSpinPhase("claim");
+        setRefreshKey((k) => k + 1);
+      }, WIN_CELEBRATION_MS);
       return;
     }
+
+    setRefreshKey((k) => k + 1);
 
     const noSpinsLeft =
       result.spinsRemaining === 0 || result.canSpinAgainAt !== null;
 
     setPostSpinPhase("splash");
-    splashTimerRef.current = setTimeout(() => {
-      splashTimerRef.current = null;
+    phaseTimerRef.current = setTimeout(() => {
+      phaseTimerRef.current = null;
       if (noSpinsLeft) {
         setPostSpinPhase("cooldown");
       } else {
@@ -46,29 +58,30 @@ export default function GameShell() {
   }
 
   function handlePostSpinDismiss() {
-    if (splashTimerRef.current) {
-      clearTimeout(splashTimerRef.current);
-      splashTimerRef.current = null;
-    }
+    clearPhaseTimer();
     setPostSpinPhase("idle");
     setPostSpinDismissed(true);
     setLastSpinResult(null);
   }
 
   function handleClaimComplete() {
-    if (splashTimerRef.current) {
-      clearTimeout(splashTimerRef.current);
-      splashTimerRef.current = null;
-    }
+    clearPhaseTimer();
     setPostSpinPhase("idle");
     setLastSpinResult(null);
     setPostSpinDismissed(true);
     setRefreshKey((k) => k + 1);
   }
 
+  const celebratingWin = postSpinPhase === "win-celebration";
+
   return (
     <>
-      <SlotMachine onSpinComplete={handleSpinComplete} spinDisabled={spinBlocked} />
+      <SlotMachine
+        onSpinComplete={handleSpinComplete}
+        spinDisabled={spinBlocked}
+        celebratingWin={celebratingWin}
+      />
+      {celebratingWin ? <WinFireworks /> : null}
       <GameModals
         refreshKey={refreshKey}
         lastSpinResult={lastSpinResult}

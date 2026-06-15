@@ -4,10 +4,10 @@ import {
   getDailySpinLimit,
 } from "@/lib/spin-allowance";
 import { getSpinAllowanceForSession } from "@/lib/spin-allowance-server";
-import { isDevUnlimitedSpins } from "@/lib/dev";
+import { isDevForceWin, isDevUnlimitedSpins } from "@/lib/dev";
 import { ensureGameSession, requireAuthUserId } from "@/lib/game-session";
 import { prisma } from "@/lib/prisma";
-import { outcomeMessage, resolveSpin } from "@/lib/spin-engine";
+import { generateSpin, outcomeMessage, resolveSpin } from "@/lib/spin-engine";
 import { canAwardNftWin } from "@/lib/win-pool";
 import type { ReelGrid, SpinStatusResponse } from "@/types/game";
 
@@ -120,9 +120,11 @@ export async function POST() {
       tx.spin.count({ where: { outcome: "NFT_WIN" } }),
     ]);
 
-    const result = resolveSpin({
-      canAwardWin: canAwardNftWin(completedSpinCount, nftWinCount),
-    });
+    const result = isDevForceWin()
+      ? generateSpin("NFT_WIN")
+      : resolveSpin({
+          canAwardWin: canAwardNftWin(completedSpinCount, nftWinCount),
+        });
 
     const created = await tx.spin.create({
       data: {

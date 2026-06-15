@@ -5,7 +5,7 @@ import { signIn, useSession } from "next-auth/react";
 import { isValidSolanaWalletAddress } from "@/lib/solana-wallet";
 import type { SpinApiResponse, SpinStatusResponse } from "@/types/game";
 
-export type PostSpinPhase = "idle" | "splash" | "cooldown";
+export type PostSpinPhase = "idle" | "splash" | "cooldown" | "win-celebration" | "claim";
 
 function DiscordIcon() {
   return (
@@ -188,8 +188,13 @@ export default function GameModals({
   ]);
 
   const pendingWinId =
-    spinStatus?.uncollectedWin?.spinId ??
-    (lastSpinResult?.outcome === "NFT_WIN" ? lastSpinResult.spinId : null);
+    postSpinPhase === "win-celebration"
+      ? null
+      : postSpinPhase === "claim" && lastSpinResult?.outcome === "NFT_WIN"
+        ? lastSpinResult.spinId
+        : postSpinPhase === "idle" && !lastSpinResult
+          ? (spinStatus?.uncollectedWin?.spinId ?? null)
+          : null;
 
   const showResultSplash =
     postSpinPhase === "splash" &&
@@ -203,7 +208,12 @@ export default function GameModals({
     lastSpinResult.outcome !== "NFT_WIN" &&
     !postSpinCountdown.done;
 
-  const showWelcome = Boolean(spinStatus?.canSpin && !welcomeDismissed);
+  const showWelcome = Boolean(
+    spinStatus?.canSpin &&
+      !welcomeDismissed &&
+      postSpinPhase !== "win-celebration" &&
+      postSpinPhase !== "claim",
+  );
   const showReturnCooldown = Boolean(
     postSpinPhase === "idle" &&
       spinStatus &&
@@ -218,6 +228,7 @@ export default function GameModals({
     status !== "authenticated" ||
     !spinStatus ||
     Boolean(pendingWinId) ||
+    postSpinPhase === "win-celebration" ||
     showResultSplash ||
     showPostSpinLose ||
     showWelcome ||
