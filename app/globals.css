@@ -125,22 +125,39 @@
 
 /* ── Layered frame overlay (1024×686) ── */
 .game-viewport {
+  --avail-w: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+  --avail-h: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   min-height: 100dvh;
   height: 100dvh;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding:
+    env(safe-area-inset-top, 0)
+    env(safe-area-inset-right, 0)
+    env(safe-area-inset-bottom, 0)
+    env(safe-area-inset-left, 0);
+  box-sizing: border-box;
   background: #000;
   overflow: hidden;
   touch-action: manipulation;
 }
 
-/* Height-first: always fill viewport vertically; crop horizontal overflow on narrow screens */
+@supports (height: 100svh) {
+  .game-viewport {
+    --avail-h: calc(100svh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    min-height: 100svh;
+    height: 100svh;
+  }
+}
+
+/* Fit entire 1024×686 stage inside viewport — width- or height-limited depending on screen */
 .game-stage {
   position: relative;
-  height: 100dvh;
-  width: calc(100dvh * 1024 / 686);
+  aspect-ratio: 1024 / 686;
+  width: min(var(--avail-w), calc(var(--avail-h) * 1024 / 686));
+  height: min(var(--avail-h), calc(var(--avail-w) * 686 / 1024));
   flex-shrink: 0;
   container-type: size;
 }
