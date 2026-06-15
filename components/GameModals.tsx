@@ -5,6 +5,8 @@ import { signIn, useSession } from "next-auth/react";
 import { isValidSolanaWalletAddress } from "@/lib/solana-wallet";
 import type { SpinApiResponse, SpinStatusResponse } from "@/types/game";
 
+export type PostSpinPhase = "idle" | "splash" | "cooldown";
+
 function DiscordIcon() {
   return (
     <svg aria-hidden viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
@@ -73,8 +75,6 @@ function useCountdown(targetIso: string | null) {
   return parts;
 }
 
-const RESULT_SPLASH_MS = 3000;
-
 function resultSplashText(outcome: SpinApiResponse["outcome"], noSpinsLeft: boolean): string {
   if (outcome === "NEAR_MISS") return "So close!";
   if (noSpinsLeft) return "No win this time.\nCome back tomorrow.";
@@ -85,9 +85,31 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
+function ResultSplash({ result }: { result: SpinApiResponse }) {
+  const noSpinsLeft = result.spinsRemaining === 0 || result.canSpinAgainAt !== null;
+  const lines = resultSplashText(result.outcome, noSpinsLeft).split("\n");
+
+  return (
+    <div className="result-splash" role="status" aria-live="polite">
+      <p
+        className={`result-splash__text${
+          result.outcome === "NEAR_MISS" ? " result-splash__text--near" : ""
+        }`}
+      >
+        {lines.map((line, i) => (
+          <span key={i} className="result-splash__line">
+            {line}
+          </span>
+        ))}
+      </p>
+    </div>
+  );
+}
+
 type GameModalsProps = {
   refreshKey?: number;
   lastSpinResult?: SpinApiResponse | null;
+  postSpinPhase?: PostSpinPhase;
   postSpinDismissed?: boolean;
   onPostSpinDismiss?: () => void;
   onClaimComplete?: () => void;
@@ -97,6 +119,7 @@ type GameModalsProps = {
 export default function GameModals({
   refreshKey = 0,
   lastSpinResult = null,
+  postSpinPhase = "idle",
   postSpinDismissed = false,
   onPostSpinDismiss,
   onClaimComplete,
@@ -110,8 +133,6 @@ export default function GameModals({
   const [walletAddress, setWalletAddress] = useState("");
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
-  /** Spin id for which the result splash has finished (null = splash still active for current spin). */
-  const [splashDismissedSpinId, setSplashDismissedSpinId] = useState<string | null>(null);
 
   const returnVisitCountdown = useCountdown(spinStatus?.nextSpinAt ?? null);
   const postSpinCountdown = useCountdown(
@@ -152,51 +173,40 @@ export default function GameModals({
   useEffect(() => {
     if (
       postSpinCountdown.done &&
+      postSpinPhase === "cooldown" &&
       lastSpinResult &&
-      lastSpinResult.outcome !== "NFT_WIN" &&
       !postSpinDismissed
     ) {
       onPostSpinDismiss?.();
     }
-  }, [postSpinCountdown.done, lastSpinResult, postSpinDismissed, onPostSpinDismiss]);
-
-  useEffect(() => {
-    if (!lastSpinResult || lastSpinResult.outcome === "NFT_WIN") {
-      setSplashDismissedSpinId(null);
-      return;
-    }
-    if (splashDismissedSpinId === lastSpinResult.spinId) return;
-
-    const id = window.setTimeout(() => {
-      setSplashDismissedSpinId(lastSpinResult.spinId);
-    }, RESULT_SPLASH_MS);
-    return () => window.clearTimeout(id);
-  }, [lastSpinResult?.spinId, lastSpinResult?.outcome, splashDismissedSpinId]);
+  }, [
+    postSpinCountdown.done,
+    postSpinPhase,
+    lastSpinResult,
+    postSpinDismissed,
+    onPostSpinDismiss,
+  ]);
 
   const pendingWinId =
     spinStatus?.uncollectedWin?.spinId ??
     (lastSpinResult?.outcome === "NFT_WIN" ? lastSpinResult.spinId : null);
 
-  const showResultSplash = Boolean(
-    lastSpinResult &&
-      !postSpinDismissed &&
-      lastSpinResult.outcome !== "NFT_WIN" &&
-      splashDismissedSpinId !== lastSpinResult.spinId,
-  );
+  const showResultSplash =
+    postSpinPhase === "splash" &&
+    lastSpinResult !== null &&
+    lastSpinResult.outcome !== "NFT_WIN";
 
-  const showPostSpinLose = Boolean(
-    lastSpinResult &&
-      !postSpinDismissed &&
-      lastSpinResult.outcome !== "NFT_WIN" &&
-      spinStatus &&
-      !spinStatus.canSpin &&
-      !postSpinCountdown.done &&
-      splashDismissedSpinId === lastSpinResult.spinId,
-  );
+  const showPostSpinLose =
+    postSpinPhase === "cooldown" &&
+    lastSpinResult !== null &&
+    !postSpinDismissed &&
+    lastSpinResult.outcome !== "NFT_WIN" &&
+    !postSpinCountdown.done;
 
   const showWelcome = Boolean(spinStatus?.canSpin && !welcomeDismissed);
   const showReturnCooldown = Boolean(
-    spinStatus &&
+    postSpinPhase === "idle" &&
+      spinStatus &&
       !spinStatus.canSpin &&
       spinStatus.nextSpinAt &&
       !returnVisitCountdown.done &&
@@ -293,6 +303,11 @@ export default function GameModals({
     );
   }
 
+  // Result splash — before spinStatus gate so it always shows right after a spin
+  if (showResultSplash && lastSpinResult) {
+    return <ResultSplash result={lastSpinResult} />;
+  }
+
   if (!spinStatus) return null;
 
   if (pendingWinId) {
@@ -331,34 +346,7 @@ export default function GameModals({
     );
   }
 
-  if (showResultSplash && lastSpinResult) {
-    const noSpinsLeft =
-      lastSpinResult.spinsRemaining === 0 || lastSpinResult.canSpinAgainAt !== null;
-    const lines = resultSplashText(lastSpinResult.outcome, noSpinsLeft).split("\n");
-    return (
-      <div className="result-splash" role="status" aria-live="polite">
-        <p
-          className={`result-splash__text${
-            lastSpinResult.outcome === "NEAR_MISS" ? " result-splash__text--near" : ""
-          }`}
-        >
-          {lines.map((line, i) => (
-            <span key={i} className="result-splash__line">
-              {line}
-            </span>
-          ))}
-        </p>
-      </div>
-    );
-  }
-
-  if (
-    lastSpinResult &&
-    !postSpinDismissed &&
-    lastSpinResult.outcome !== "NFT_WIN" &&
-    !spinStatus.canSpin &&
-    !postSpinCountdown.done
-  ) {
+  if (showPostSpinLose && lastSpinResult) {
     return (
       <div className="game-modal-backdrop game-modal-backdrop--locked">
         <div className="game-modal" role="dialog" aria-modal="true">
@@ -392,12 +380,7 @@ export default function GameModals({
     );
   }
 
-  if (
-    !spinStatus.canSpin &&
-    spinStatus.nextSpinAt &&
-    !returnVisitCountdown.done &&
-    !lastSpinResult
-  ) {
+  if (showReturnCooldown) {
     return (
       <div className="game-modal-backdrop game-modal-backdrop--locked">
         <div className="game-modal" role="dialog" aria-modal="true">
