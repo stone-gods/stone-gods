@@ -8,6 +8,7 @@ import { isDevUnlimitedSpins } from "@/lib/dev";
 import { ensureGameSession, requireAuthUserId } from "@/lib/game-session";
 import { prisma } from "@/lib/prisma";
 import { outcomeMessage, resolveSpin } from "@/lib/spin-engine";
+import { canAwardNftWin } from "@/lib/win-pool";
 import type { ReelGrid, SpinStatusResponse } from "@/types/game";
 
 export const runtime = "nodejs";
@@ -113,14 +114,21 @@ export async function POST() {
     }
   }
 
-  const { outcome, reels } = resolveSpin();
+  const { spin, outcome, reels } = await prisma.$transaction(async (tx) => {
+    const [completedSpinCount, nftWinCount] = await Promise.all([
+      tx.spin.count(),
+      tx.spin.count({ where: { outcome: "NFT_WIN" } }),
+    ]);
 
-  const spin = await prisma.$transaction(async (tx) => {
+    const result = resolveSpin({
+      canAwardWin: canAwardNftWin(completedSpinCount, nftWinCount),
+    });
+
     const created = await tx.spin.create({
       data: {
         gameSessionId: gameSession.id,
-        outcome,
-        symbols: reels,
+        outcome: result.outcome,
+        symbols: result.reels,
       },
     });
 
@@ -131,7 +139,7 @@ export async function POST() {
       });
     }
 
-    return created;
+    return { spin: created, outcome: result.outcome, reels: result.reels };
   });
 
   if (unlimited) {
