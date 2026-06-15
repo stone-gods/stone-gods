@@ -110,7 +110,8 @@ export default function GameModals({
   const [walletAddress, setWalletAddress] = useState("");
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
-  const [resultSplashDone, setResultSplashDone] = useState(true);
+  /** Spin id for which the result splash has finished (null = splash still active for current spin). */
+  const [splashDismissedSpinId, setSplashDismissedSpinId] = useState<string | null>(null);
 
   const returnVisitCountdown = useCountdown(spinStatus?.nextSpinAt ?? null);
   const postSpinCountdown = useCountdown(
@@ -161,13 +162,16 @@ export default function GameModals({
 
   useEffect(() => {
     if (!lastSpinResult || lastSpinResult.outcome === "NFT_WIN") {
-      setResultSplashDone(true);
+      setSplashDismissedSpinId(null);
       return;
     }
-    setResultSplashDone(false);
-    const id = window.setTimeout(() => setResultSplashDone(true), RESULT_SPLASH_MS);
+    if (splashDismissedSpinId === lastSpinResult.spinId) return;
+
+    const id = window.setTimeout(() => {
+      setSplashDismissedSpinId(lastSpinResult.spinId);
+    }, RESULT_SPLASH_MS);
     return () => window.clearTimeout(id);
-  }, [lastSpinResult?.spinId, lastSpinResult?.outcome]);
+  }, [lastSpinResult?.spinId, lastSpinResult?.outcome, splashDismissedSpinId]);
 
   const pendingWinId =
     spinStatus?.uncollectedWin?.spinId ??
@@ -177,7 +181,7 @@ export default function GameModals({
     lastSpinResult &&
       !postSpinDismissed &&
       lastSpinResult.outcome !== "NFT_WIN" &&
-      !resultSplashDone,
+      splashDismissedSpinId !== lastSpinResult.spinId,
   );
 
   const showPostSpinLose = Boolean(
@@ -187,7 +191,7 @@ export default function GameModals({
       spinStatus &&
       !spinStatus.canSpin &&
       !postSpinCountdown.done &&
-      resultSplashDone,
+      splashDismissedSpinId === lastSpinResult.spinId,
   );
 
   const showWelcome = Boolean(spinStatus?.canSpin && !welcomeDismissed);

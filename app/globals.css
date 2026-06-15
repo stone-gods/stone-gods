@@ -513,7 +513,7 @@
 .result-splash {
   position: absolute;
   inset: 0;
-  z-index: 180;
+  z-index: 190;
   display: flex;
   align-items: center;
   justify-content: center;
