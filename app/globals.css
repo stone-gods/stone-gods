@@ -1,5 +1,128 @@
 @import "tailwindcss";
 
+/* ── Loading screen ── */
+.game-loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+
+.game-loading-screen--exit {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.game-loading-screen__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.game-loading-screen__logo {
+  width: 4.5rem;
+  height: 4.5rem;
+  object-fit: contain;
+  animation: game-loading-logo-pulse 1.6s ease-in-out infinite;
+  filter: drop-shadow(0 0 20px rgba(253, 224, 71, 0.35));
+}
+
+.game-loading-screen__title {
+  margin: 0;
+  font-family: var(--font-bebas), system-ui, sans-serif;
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fef3c7;
+  text-shadow: 0 0 24px rgba(253, 224, 71, 0.2);
+}
+
+.game-loading-screen__spinner {
+  position: relative;
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+.game-loading-screen__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(253, 224, 71, 0.15);
+  border-top-color: #fde047;
+  animation: game-loading-spin 0.9s linear infinite;
+}
+
+.game-loading-screen__gem {
+  position: absolute;
+  inset: 0.85rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fde047 0%, #ca8a04 55%, #854d0e 100%);
+  box-shadow: 0 0 16px rgba(253, 224, 71, 0.45);
+  animation: game-loading-gem-pulse 1.2s ease-in-out infinite;
+}
+
+.game-loading-screen__label {
+  margin: 0;
+  font-family: var(--font-montserrat), system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #78716c;
+}
+
+@keyframes game-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes game-loading-logo-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.92;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes game-loading-gem-pulse {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.game-stage--ready {
+  animation: game-stage-reveal 0.45s ease forwards;
+}
+
+@keyframes game-stage-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* ── Layered frame overlay (1024×686) ── */
 .game-viewport {
   min-height: 100dvh;

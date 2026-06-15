@@ -36,6 +36,10 @@ export default function RootLayout({
       lang="en"
       className={`${montserrat.variable} ${bebas.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="preload" href="/assets/stone-gods-frame.png" as="image" />
+        <link rel="preload" href="/assets/stone-gods-thumb.png" as="image" />
+      </head>
       <body className="min-h-dvh overflow-hidden">
         <Providers>{children}</Providers>
       </body>

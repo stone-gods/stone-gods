@@ -1,11 +1,5 @@
-import GameShell from "@/components/GameShell";
+import GamePage from "@/components/GamePage";
 
 export default function Home() {
-  return (
-    <main className="game-viewport">
-      <div className="game-stage">
-        <GameShell />
-      </div>
-    </main>
-  );
+  return <GamePage />;
 }
