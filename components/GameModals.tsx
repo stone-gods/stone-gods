@@ -73,6 +73,14 @@ function useCountdown(targetIso: string | null) {
   return parts;
 }
 
+const RESULT_SPLASH_MS = 3000;
+
+function resultSplashText(outcome: SpinApiResponse["outcome"], noSpinsLeft: boolean): string {
+  if (outcome === "NEAR_MISS") return "So close!";
+  if (noSpinsLeft) return "No win this time.\nCome back tomorrow.";
+  return "No win this time.";
+}
+
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -102,6 +110,7 @@ export default function GameModals({
   const [walletAddress, setWalletAddress] = useState("");
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
+  const [resultSplashDone, setResultSplashDone] = useState(true);
 
   const returnVisitCountdown = useCountdown(spinStatus?.nextSpinAt ?? null);
   const postSpinCountdown = useCountdown(
@@ -150,9 +159,26 @@ export default function GameModals({
     }
   }, [postSpinCountdown.done, lastSpinResult, postSpinDismissed, onPostSpinDismiss]);
 
+  useEffect(() => {
+    if (!lastSpinResult || lastSpinResult.outcome === "NFT_WIN") {
+      setResultSplashDone(true);
+      return;
+    }
+    setResultSplashDone(false);
+    const id = window.setTimeout(() => setResultSplashDone(true), RESULT_SPLASH_MS);
+    return () => window.clearTimeout(id);
+  }, [lastSpinResult?.spinId, lastSpinResult?.outcome]);
+
   const pendingWinId =
     spinStatus?.uncollectedWin?.spinId ??
     (lastSpinResult?.outcome === "NFT_WIN" ? lastSpinResult.spinId : null);
+
+  const showResultSplash = Boolean(
+    lastSpinResult &&
+      !postSpinDismissed &&
+      lastSpinResult.outcome !== "NFT_WIN" &&
+      !resultSplashDone,
+  );
 
   const showPostSpinLose = Boolean(
     lastSpinResult &&
@@ -160,7 +186,8 @@ export default function GameModals({
       lastSpinResult.outcome !== "NFT_WIN" &&
       spinStatus &&
       !spinStatus.canSpin &&
-      !postSpinCountdown.done,
+      !postSpinCountdown.done &&
+      resultSplashDone,
   );
 
   const showWelcome = Boolean(spinStatus?.canSpin && !welcomeDismissed);
@@ -177,6 +204,7 @@ export default function GameModals({
     status !== "authenticated" ||
     !spinStatus ||
     Boolean(pendingWinId) ||
+    showResultSplash ||
     showPostSpinLose ||
     showWelcome ||
     showReturnCooldown;
@@ -295,6 +323,27 @@ export default function GameModals({
             {claiming ? "…" : "Claim"}
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (showResultSplash && lastSpinResult) {
+    const noSpinsLeft =
+      lastSpinResult.spinsRemaining === 0 || lastSpinResult.canSpinAgainAt !== null;
+    const lines = resultSplashText(lastSpinResult.outcome, noSpinsLeft).split("\n");
+    return (
+      <div className="result-splash" role="status" aria-live="polite">
+        <p
+          className={`result-splash__text${
+            lastSpinResult.outcome === "NEAR_MISS" ? " result-splash__text--near" : ""
+          }`}
+        >
+          {lines.map((line, i) => (
+            <span key={i} className="result-splash__line">
+              {line}
+            </span>
+          ))}
+        </p>
       </div>
     );
   }

@@ -44,8 +44,6 @@ export default function SlotMachine({ onSpinComplete, spinDisabled = false }: Sl
   const [faceH, setFaceH] = useState(88);
   const [stripAnimating, setStripAnimating] = useState([false, false, false]);
   const [spinning, setSpinning] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const pendingMessageRef = useRef<string | null>(null);
   const pendingSpinRef = useRef<SpinApiResponse | null>(null);
   const reelsWrapRef = useRef<HTMLDivElement>(null);
 
@@ -72,8 +70,6 @@ export default function SlotMachine({ onSpinComplete, spinDisabled = false }: Sl
       next[reelIdx] = false;
       if (next.every((active) => !active)) {
         setSpinning(false);
-        setMessage(pendingMessageRef.current);
-        pendingMessageRef.current = null;
 
         const completed = pendingSpinRef.current;
         if (completed) {
@@ -104,8 +100,6 @@ export default function SlotMachine({ onSpinComplete, spinDisabled = false }: Sl
     if (spinning || spinDisabled) return;
 
     setSpinning(true);
-    setMessage(null);
-    pendingMessageRef.current = null;
     pendingSpinRef.current = null;
 
     setStripAnimating([false, false, false]);
@@ -123,7 +117,6 @@ export default function SlotMachine({ onSpinComplete, spinDisabled = false }: Sl
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage(data.error ?? "Spin failed");
         setStripAnimating([false, false, false]);
         setSpinning(false);
         return;
@@ -131,10 +124,8 @@ export default function SlotMachine({ onSpinComplete, spinDisabled = false }: Sl
 
       const spin = data as SpinApiResponse;
       setReels(spin.reels);
-      pendingMessageRef.current = spin.message;
       pendingSpinRef.current = spin;
     } catch {
-      setMessage("Network error");
       setStripAnimating([false, false, false]);
       setSpinning(false);
     }
@@ -220,10 +211,6 @@ export default function SlotMachine({ onSpinComplete, spinDisabled = false }: Sl
           >
             {spinning ? "…" : "SPIN"}
           </button>
-        </div>
-
-        <div className="slot__msg-wrap" aria-live="polite">
-          <p className={`slot__msg${message ? " is-visible" : ""}`}>{message ?? ""}</p>
         </div>
       </div>
     </div>
