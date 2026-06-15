@@ -330,13 +330,13 @@ export default function GameModals({
             You have won a Stone Gods NFT
           </p>
           <label className="game-modal__label">
-            Enter wallet address
+            Enter Solana wallet
             <input
               type="text"
               className="game-modal__input"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
-              placeholder="Solana wallet address"
+              placeholder="Solana wallet"
               autoComplete="off"
               spellCheck={false}
             />
