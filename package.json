@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:mobile": "next dev --hostname 0.0.0.0",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "prisma generate && tsx scripts/migrate-deploy.ts && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",

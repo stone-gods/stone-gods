@@ -46,7 +46,9 @@ Spins are **server-authoritative** — outcome is decided before the UI animates
 
 ## Vercel deploy
 
-Set `DATABASE_URL` (pooled Neon URL) in project env. Build runs `prisma generate && prisma migrate deploy && next build`. Migrations use a direct DB connection automatically when the URL contains `-pooler`; optionally set `DIRECT_URL` to override.
+Set `DATABASE_URL` (pooled Neon URL) in project env. Build runs `prisma generate`, migrations (`tsx scripts/migrate-deploy.ts`), then `next build`. Migrations use a direct DB connection automatically when the URL contains `-pooler`; optionally set `DIRECT_URL` to override.
+
+To deploy migrations manually: `npx tsx scripts/migrate-deploy.ts`
 
 ## Phase 2+ (not yet implemented)
 

@@ -16,5 +16,11 @@ export function resolveMigrationDatabaseUrl(): string {
     return databaseUrl.replace("-pooler", "");
   }
 
+  // Neon cold starts: allow extra time for the direct connection used by migrate.
+  if (databaseUrl.includes("neon.tech") && !databaseUrl.includes("connect_timeout=")) {
+    const separator = databaseUrl.includes("?") ? "&" : "?";
+    return `${databaseUrl}${separator}connect_timeout=30`;
+  }
+
   return databaseUrl;
 }
