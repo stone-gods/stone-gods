@@ -286,11 +286,13 @@
   }
 }
 
-/* Height-first: fill the screen vertically; crop sides on narrow portrait screens */
+/* Height-first on tall screens; shrink to fit width on tablets (e.g. iPad landscape). */
 .game-stage {
   position: relative;
-  height: var(--stage-h);
-  width: calc(var(--stage-h) * 1024 / 686);
+  aspect-ratio: 1024 / 686;
+  width: min(100%, calc(var(--stage-h) * 1024 / 686));
+  max-height: var(--stage-h);
+  height: auto;
   flex-shrink: 0;
   container-type: size;
 }
@@ -1254,9 +1256,15 @@
 
 .slot__actions--dual {
   display: grid !important;
-  grid-template-columns: auto 1fr;
-  align-items: stretch;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
   gap: 0.65rem;
+  --slot-btn-pad-block: 0.875rem;
+  --slot-btn-border: 2px;
+  --slot-btn-font: 1.1rem;
+  --slot-btn-size: calc(
+    2 * var(--slot-btn-pad-block) + var(--slot-btn-font) + 2 * var(--slot-btn-border)
+  );
 }
 
 .slot--layered .slot__actions--dual {
@@ -1264,24 +1272,25 @@
 }
 
 .slot__actions--dual .slot__spin {
-  width: auto;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
   flex: unset;
 }
 
 .slot__gift {
-  aspect-ratio: 1;
-  align-self: stretch;
-  justify-self: start;
-  height: 100%;
-  width: auto;
+  box-sizing: border-box;
+  width: var(--slot-btn-size);
+  height: var(--slot-btn-size);
+  min-width: var(--slot-btn-size);
+  max-width: var(--slot-btn-size);
   flex: none;
+  align-self: center;
+  justify-self: start;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  min-width: auto;
   color: #fff;
   border: 2px solid #fff;
   border-radius: 10px;
@@ -1319,11 +1328,25 @@
 }
 
 .game-stage .slot__actions--dual {
+  --slot-btn-pad-block: calc(100cqb * 15.4 / 686);
+  --slot-btn-border: calc(100cqb * 2 / 686);
+  --slot-btn-font: calc(100cqi * 5.8 / 100);
+  --slot-btn-size: calc(
+    2 * var(--slot-btn-pad-block) + var(--slot-btn-font) + 2 * var(--slot-btn-border)
+  );
+  gap: calc(100cqi * 1.2 / 100);
+}
+
+.game-stage .slot--layered .slot__actions--dual {
   gap: calc(100cqi * 1.2 / 100);
 }
 
 .game-stage .slot__gift {
-  border-width: calc(100cqb * 2 / 686);
+  width: var(--slot-btn-size);
+  height: var(--slot-btn-size);
+  min-width: var(--slot-btn-size);
+  max-width: var(--slot-btn-size);
+  border-width: var(--slot-btn-border);
   border-radius: calc(100cqb * 10 / 686);
   box-shadow:
     0 calc(100cqb * 6 / 686) 0 #1e3a8a,
