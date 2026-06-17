@@ -56,6 +56,9 @@ export function isPrizeWalletConfigured(): boolean {
 }
 
 export function isMockNftClaimEnabled(): boolean {
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
   return trim(process.env.MOCK_NFT_CLAIM)?.toLowerCase() === "true";
 }
 

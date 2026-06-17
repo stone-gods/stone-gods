@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
+import { ApiError } from "@/lib/api-error";
 import {
   cooldownUntilFromLastSpin,
   getDailySpinLimit,
 } from "@/lib/spin-allowance";
-import { getSpinAllowanceForSession } from "@/lib/spin-allowance-server";
+import {
+  assertSpinAllowanceInTx,
+  getSpinAllowanceForSession,
+} from "@/lib/spin-allowance-server";
 import { isDevForceWin, isDevUnlimitedSpins } from "@/lib/dev";
 import { ensureGameSession, requireAuthUserId } from "@/lib/game-session";
 import { assignPrizeForWin, prizeFieldsFromInfo } from "@/lib/prize-assignment";
@@ -11,6 +15,10 @@ import { enrichPrizeInfo } from "@/lib/prize-inventory";
 import { getPrizeWalletEnv } from "@/lib/prize-wallet-env";
 import { prisma } from "@/lib/prisma";
 import { generateSpin, outcomeMessage, resolveSpin } from "@/lib/spin-engine";
+import {
+  lockGameSessionForSpin,
+  lockSpinWinPool,
+} from "@/lib/spin-transaction-locks";
 import { canAwardNftWin } from "@/lib/win-pool";
 import type { PrizeInfo, ReelGrid, SpinStatusResponse } from "@/types/game";
 import { prizeInfoFromSpin } from "@/types/game";
@@ -23,6 +31,10 @@ function parseReels(symbols: unknown): ReelGrid {
 
 function unauthorized() {
   return NextResponse.json({ error: "Login required" }, { status: 401 });
+}
+
+function apiErrorResponse(err: ApiError) {
+  return NextResponse.json({ error: err.message, ...err.body }, { status: err.status });
 }
 
 async function maybeEnrichPrize(prize: PrizeInfo | null): Promise<PrizeInfo | null> {
@@ -80,7 +92,7 @@ export async function GET() {
     : null;
 
   const response: SpinStatusResponse = {
-    canSpin: allowance.canSpin,
+    canSpin: allowance.canSpin && !uncollectedWinRow,
     spinsRemaining: allowance.spinsRemaining,
     dailySpinLimit: dailyLimit,
     nextSpinAt: unlimited ? null : (allowance.nextSpinAt?.toISOString() ?? null),
@@ -132,72 +144,108 @@ export async function POST() {
     }
   }
 
-  const { spin, outcome, reels, prize } = await prisma.$transaction(async (tx) => {
-    const [completedSpinCount, nftWinCount] = await Promise.all([
-      tx.spin.count(),
-      tx.spin.count({ where: { outcome: "NFT_WIN" } }),
-    ]);
+  try {
+    const { spin, outcome, reels, prize } = await prisma.$transaction(async (tx) => {
+      await lockSpinWinPool(tx);
+      await lockGameSessionForSpin(tx, gameSession.id);
 
-    let result = isDevForceWin()
-      ? generateSpin("NFT_WIN")
-      : resolveSpin({
-          canAwardWin: canAwardNftWin(completedSpinCount, nftWinCount),
-        });
+      const lockedSession = await tx.gameSession.findUniqueOrThrow({
+        where: { id: gameSession.id },
+      });
 
-    let prize: PrizeInfo | null = null;
+      const uncollectedWin = await tx.spin.findFirst({
+        where: {
+          gameSessionId: gameSession.id,
+          outcome: "NFT_WIN",
+          collectedAt: null,
+        },
+        select: { id: true },
+      });
 
-    if (result.outcome === "NFT_WIN") {
-      prize = await assignPrizeForWin(tx);
-      if (!prize) {
-        result = generateSpin("LOSS");
+      if (uncollectedWin) {
+        throw new ApiError(409, "Claim your prize before spinning again");
       }
-    }
 
-    const created = await tx.spin.create({
-      data: {
-        gameSessionId: gameSession.id,
-        outcome: result.outcome,
-        symbols: result.reels,
-        ...(prize ? prizeFieldsFromInfo(prize) : {}),
-      },
+      if (!unlimited) {
+        const allowance = await assertSpinAllowanceInTx(tx, lockedSession, now);
+        if (!allowance.canSpin) {
+          throw new ApiError(429, "No spins remaining", {
+            nextSpinAt: allowance.nextSpinAt?.toISOString() ?? null,
+          });
+        }
+      }
+
+      const [completedSpinCount, nftWinCount] = await Promise.all([
+        tx.spin.count(),
+        tx.spin.count({ where: { outcome: "NFT_WIN" } }),
+      ]);
+
+      let result = isDevForceWin()
+        ? generateSpin("NFT_WIN")
+        : resolveSpin({
+            canAwardWin: canAwardNftWin(completedSpinCount, nftWinCount),
+          });
+
+      let prize: PrizeInfo | null = null;
+
+      if (result.outcome === "NFT_WIN") {
+        prize = await assignPrizeForWin(tx);
+        if (!prize) {
+          result = generateSpin("LOSS");
+        }
+      }
+
+      const created = await tx.spin.create({
+        data: {
+          gameSessionId: gameSession.id,
+          outcome: result.outcome,
+          symbols: result.reels,
+          ...(prize ? prizeFieldsFromInfo(prize) : {}),
+        },
+      });
+
+      if (!unlimited) {
+        await tx.gameSession.update({
+          where: { id: gameSession.id },
+          data: { lastSpinAt: now },
+        });
+      }
+
+      return { spin: created, outcome: result.outcome, reels: result.reels, prize };
     });
 
-    if (!unlimited) {
-      await tx.gameSession.update({
-        where: { id: gameSession.id },
-        data: { lastSpinAt: now },
+    const displayPrize = prize ? await maybeEnrichPrize(prize) : null;
+
+    if (unlimited) {
+      return NextResponse.json({
+        spinId: spin.id,
+        outcome,
+        reels,
+        prize: displayPrize,
+        canSpinAgainAt: null,
+        spinsRemaining: dailyLimit,
+        message: outcomeMessage(outcome, unlimited, displayPrize),
       });
     }
 
-    return { spin: created, outcome: result.outcome, reels: result.reels, prize };
-  });
+    const updatedAllowance = await getSpinAllowanceForSession(session, now);
+    const canSpinAgain = updatedAllowance.canSpin;
 
-  const displayPrize = prize ? await maybeEnrichPrize(prize) : null;
-
-  if (unlimited) {
     return NextResponse.json({
       spinId: spin.id,
       outcome,
       reels,
       prize: displayPrize,
-      canSpinAgainAt: null,
-      spinsRemaining: dailyLimit,
+      canSpinAgainAt: canSpinAgain
+        ? null
+        : cooldownUntilFromLastSpin(spin.createdAt).toISOString(),
+      spinsRemaining: updatedAllowance.spinsRemaining,
       message: outcomeMessage(outcome, unlimited, displayPrize),
     });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return apiErrorResponse(err);
+    }
+    throw err;
   }
-
-  const updatedAllowance = await getSpinAllowanceForSession(session, now);
-  const canSpinAgain = updatedAllowance.canSpin;
-
-  return NextResponse.json({
-    spinId: spin.id,
-    outcome,
-    reels,
-    prize: displayPrize,
-    canSpinAgainAt: canSpinAgain
-      ? null
-      : cooldownUntilFromLastSpin(spin.createdAt).toISOString(),
-    spinsRemaining: updatedAllowance.spinsRemaining,
-    message: outcomeMessage(outcome, unlimited, displayPrize),
-  });
 }
