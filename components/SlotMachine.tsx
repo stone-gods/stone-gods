@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import StoneDrumSurface from "@/components/StoneDrumSurface";
+import ReelSpinSound from "@/components/ReelSpinSound";
 import ReelSymbol from "@/components/ReelSymbol";
+import { playReelStopSound, preloadReelStopSound } from "@/lib/reel-audio";
 import { ALL_SYMBOLS, PAYLINE_INDEX } from "@/lib/symbols";
 import type { ReelGrid, SpinApiResponse, SpinStatusResponse, SymbolId } from "@/types/game";
 
@@ -67,8 +69,14 @@ export default function SlotMachine({
     return () => ro.disconnect();
   }, []);
 
+  useEffect(() => {
+    preloadReelStopSound();
+  }, []);
+
   function onStripAnimationEnd(reelIdx: number, e: React.AnimationEvent<HTMLDivElement>) {
     if (e.animationName !== "reel-spin" || e.target !== e.currentTarget) return;
+
+    playReelStopSound();
 
     setStripAnimating((prev) => {
       const next = [...prev];
@@ -138,6 +146,7 @@ export default function SlotMachine({
 
   return (
     <div className={`slot slot--layered${celebratingWin ? " slot--win-celebration" : ""}`}>
+      <ReelSpinSound spinning={spinning} />
       <svg className="slot__defs" aria-hidden width="0" height="0">
         <defs>
           <clipPath id="reel-barrel" clipPathUnits="objectBoundingBox">
