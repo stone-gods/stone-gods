@@ -82,7 +82,3 @@ export function recipientTokenAddress(
 ): PublicKey {
   return getAssociatedTokenAddressSync(mint, recipient, false, tokenProgram);
 }
-
-export function isProgrammableNft(holding: PrizeTokenHolding): boolean {
-  return holding.interface === "ProgrammableNFT";
-}
