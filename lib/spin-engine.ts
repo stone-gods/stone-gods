@@ -1,13 +1,13 @@
 import { randomInt } from "crypto";
 import type { SpinOutcome } from "@/app/generated/prisma/client";
+import { getNftWinThreshold, getWinPoolSize, WIN_ROLL_DENOMINATOR } from "@/lib/game-odds";
 import {
   COMMON_SYMBOLS,
   GOD_SYMBOLS,
   PAYLINE_INDEX,
 } from "@/lib/symbols";
+import { canAwardNftWin } from "@/lib/win-pool";
 import type { ReelGrid, SpinResult, SymbolId } from "@/types/game";
-
-const NFT_WIN_THRESHOLD = 100; // 100 / 10_000 = 1% target
 
 export function paylineSymbols(reels: ReelGrid): [SymbolId, SymbolId, SymbolId] {
   return [
@@ -30,9 +30,10 @@ export function paylineHasThreeGods(reels: ReelGrid): boolean {
 export function rollOutcome(
   options: { canAwardWin: boolean },
   random = randomInt,
+  threshold = getNftWinThreshold(),
 ): SpinOutcome {
-  const roll = random(0, 10_000);
-  if (roll < NFT_WIN_THRESHOLD && options.canAwardWin) {
+  const roll = random(0, WIN_ROLL_DENOMINATOR);
+  if (roll < threshold && options.canAwardWin) {
     return "NFT_WIN";
   }
   return "LOSS";
@@ -151,18 +152,19 @@ export function simulateWinRate(spins: number, random = randomInt): number {
 export function simulateWinRateWithPool(
   spins: number,
   random = randomInt,
+  poolSize = getWinPoolSize(),
 ): { rate: number; maxWinsInWindow: number } {
   let wins = 0;
   let maxWinsInWindow = 0;
   let windowWins = 0;
 
   for (let i = 0; i < spins; i++) {
-    if (i > 0 && i % 100 === 0) {
+    if (i > 0 && i % poolSize === 0) {
       maxWinsInWindow = Math.max(maxWinsInWindow, windowWins);
       windowWins = 0;
     }
 
-    const canAwardWin = wins < Math.floor(i / 100) + 1;
+    const canAwardWin = canAwardNftWin(i, wins, poolSize);
     const outcome = rollOutcome({ canAwardWin }, random);
     if (outcome === "NFT_WIN") {
       wins++;

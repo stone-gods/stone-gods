@@ -1,5 +1,4 @@
-/** Max NFT wins allowed per this many global spins (hard cap). */
-export const WIN_POOL_SIZE = 100;
+import { getWinPoolSize } from "@/lib/game-odds";
 
 /**
  * Before spin N+1, `completedSpinCount` = N finished spins globally.
@@ -8,7 +7,8 @@ export const WIN_POOL_SIZE = 100;
 export function canAwardNftWin(
   completedSpinCount: number,
   nftWinCount: number,
+  poolSize = getWinPoolSize(),
 ): boolean {
-  const maxWinsAllowed = Math.floor(completedSpinCount / WIN_POOL_SIZE) + 1;
+  const maxWinsAllowed = Math.floor(completedSpinCount / poolSize) + 1;
   return nftWinCount < maxWinsAllowed;
 }
