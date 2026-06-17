@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import GameModals, { type PostSpinPhase } from "@/components/GameModals";
 import SlotMachine from "@/components/SlotMachine";
 import WinFireworks from "@/components/WinFireworks";
+import WinSound from "@/components/WinSound";
 import type { SpinApiResponse } from "@/types/game";
 
 const RESULT_SPLASH_MS = 3000;
@@ -82,6 +83,7 @@ export default function GameShell() {
         celebratingWin={celebratingWin}
       />
       {celebratingWin ? <WinFireworks /> : null}
+      <WinSound active={celebratingWin} />
       <GameModals
         refreshKey={refreshKey}
         lastSpinResult={lastSpinResult}
