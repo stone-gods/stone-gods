@@ -7,6 +7,8 @@ import { getSpinAllowanceForSession } from "@/lib/spin-allowance-server";
 import { isDevForceWin, isDevUnlimitedSpins } from "@/lib/dev";
 import { ensureGameSession, requireAuthUserId } from "@/lib/game-session";
 import { assignPrizeForWin, prizeFieldsFromInfo } from "@/lib/prize-assignment";
+import { enrichPrizeInfo } from "@/lib/prize-inventory";
+import { getPrizeWalletEnv } from "@/lib/prize-wallet-env";
 import { prisma } from "@/lib/prisma";
 import { generateSpin, outcomeMessage, resolveSpin } from "@/lib/spin-engine";
 import { canAwardNftWin } from "@/lib/win-pool";
@@ -21,6 +23,13 @@ function parseReels(symbols: unknown): ReelGrid {
 
 function unauthorized() {
   return NextResponse.json({ error: "Login required" }, { status: 401 });
+}
+
+async function maybeEnrichPrize(prize: PrizeInfo | null): Promise<PrizeInfo | null> {
+  if (!prize) return null;
+  const env = getPrizeWalletEnv();
+  if (!env) return prize;
+  return enrichPrizeInfo(prize, env.rpcUrl);
 }
 
 export async function GET() {
@@ -66,7 +75,9 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  const uncollectedPrize = uncollectedWinRow ? prizeInfoFromSpin(uncollectedWinRow) : null;
+  const uncollectedPrize = uncollectedWinRow
+    ? await maybeEnrichPrize(prizeInfoFromSpin(uncollectedWinRow))
+    : null;
 
   const response: SpinStatusResponse = {
     canSpin: allowance.canSpin,
@@ -83,7 +94,7 @@ export async function GET() {
           outcome: lastSpin.outcome,
           reels: parseReels(lastSpin.symbols),
           createdAt: lastSpin.createdAt.toISOString(),
-          prize: prizeInfoFromSpin(lastSpin),
+          prize: await maybeEnrichPrize(prizeInfoFromSpin(lastSpin)),
         }
       : null,
   };
@@ -161,15 +172,17 @@ export async function POST() {
     return { spin: created, outcome: result.outcome, reels: result.reels, prize };
   });
 
+  const displayPrize = prize ? await maybeEnrichPrize(prize) : null;
+
   if (unlimited) {
     return NextResponse.json({
       spinId: spin.id,
       outcome,
       reels,
-      prize,
+      prize: displayPrize,
       canSpinAgainAt: null,
       spinsRemaining: dailyLimit,
-      message: outcomeMessage(outcome, unlimited, prize),
+      message: outcomeMessage(outcome, unlimited, displayPrize),
     });
   }
 
@@ -180,11 +193,11 @@ export async function POST() {
     spinId: spin.id,
     outcome,
     reels,
-    prize,
+    prize: displayPrize,
     canSpinAgainAt: canSpinAgain
       ? null
       : cooldownUntilFromLastSpin(spin.createdAt).toISOString(),
     spinsRemaining: updatedAllowance.spinsRemaining,
-    message: outcomeMessage(outcome, unlimited, prize),
+    message: outcomeMessage(outcome, unlimited, displayPrize),
   });
 }

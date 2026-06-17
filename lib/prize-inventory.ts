@@ -36,41 +36,52 @@ function extractPrizeNumber(name: string): string | null {
   return trailingMatch?.[1] ?? null;
 }
 
-async function resolveImageUrl(asset: HeliusAsset): Promise<string | null> {
-  const direct =
-    asset.content?.links?.image?.trim() ??
-    asset.content?.files?.find((file) => file.uri?.trim() && file.mime?.startsWith("image/"))
-      ?.uri ??
-    asset.content?.files?.find((file) => file.uri?.trim())?.uri?.trim() ??
-    null;
+type OffChainMetadata = {
+  name?: string;
+  image?: string;
+};
 
-  if (direct) return direct;
+const GENERIC_PRIZE_NAME = "NFT Prize";
 
-  const jsonUri = asset.content?.json_uri?.trim();
-  if (!jsonUri) return null;
-
+async function fetchOffChainMetadata(jsonUri: string): Promise<OffChainMetadata | null> {
   try {
     const res = await fetch(jsonUri, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;
-    const meta = (await res.json()) as { image?: string };
-    return meta.image?.trim() ?? null;
+    const meta = (await res.json()) as { name?: string; image?: string };
+    return {
+      name: meta.name?.trim() || undefined,
+      image: meta.image?.trim() || undefined,
+    };
   } catch {
     return null;
   }
 }
 
-function resolveAssetName(asset: HeliusAsset): string {
+function resolveDasName(asset: HeliusAsset): string | null {
   return (
     asset.content?.metadata?.name?.trim() ||
     asset.content?.metadata?.symbol?.trim() ||
-    "NFT Prize"
+    null
+  );
+}
+
+function resolveDirectImageUrl(asset: HeliusAsset): string | null {
+  return (
+    asset.content?.links?.image?.trim() ??
+    asset.content?.files?.find((file) => file.uri?.trim() && file.mime?.startsWith("image/"))
+      ?.uri ??
+    asset.content?.files?.find((file) => file.uri?.trim())?.uri?.trim() ??
+    null
   );
 }
 
 async function assetToPrize(asset: HeliusAsset): Promise<PrizeInfo | null> {
-  const name = resolveAssetName(asset);
+  const jsonUri = asset.content?.json_uri?.trim();
+  const offChain = jsonUri ? await fetchOffChainMetadata(jsonUri) : null;
+
+  const name = offChain?.name || resolveDasName(asset) || GENERIC_PRIZE_NAME;
   const imageUrl =
-    (await resolveImageUrl(asset)) ?? "/assets/stone-gods-thumb.png";
+    resolveDirectImageUrl(asset) ?? offChain?.image ?? "/assets/stone-gods-thumb.png";
 
   return {
     mintAddress: asset.id,
@@ -239,6 +250,25 @@ export function getMockPrizeInventory(): PrizeInfo[] {
       number: "3",
     },
   ];
+}
+
+export async function prizeInfoFromAssetId(
+  rpcUrl: string,
+  assetId: string,
+): Promise<PrizeInfo | null> {
+  const asset = await fetchAssetById(rpcUrl, assetId);
+  if (!asset) return null;
+  return assetToPrize(asset);
+}
+
+export async function enrichPrizeInfo(
+  prize: PrizeInfo,
+  rpcUrl: string,
+): Promise<PrizeInfo> {
+  if (prize.name !== GENERIC_PRIZE_NAME) return prize;
+
+  const refreshed = await prizeInfoFromAssetId(rpcUrl, prize.mintAddress);
+  return refreshed ?? prize;
 }
 
 export async function fetchEligiblePrizeNfts(
