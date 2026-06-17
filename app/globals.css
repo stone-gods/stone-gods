@@ -1189,6 +1189,16 @@
   border-color: rgba(253, 224, 71, 0.55);
 }
 
+.game-modal__input--readonly {
+  cursor: default;
+  color: #d6d3d1;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.game-modal__input--readonly:focus {
+  border-color: rgba(253, 224, 71, 0.35);
+}
+
 .game-modal__claim-btn {
   display: inline-flex;
   align-items: center;
