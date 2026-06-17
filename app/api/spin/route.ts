@@ -138,7 +138,7 @@ export async function POST() {
     if (result.outcome === "NFT_WIN") {
       prize = await assignPrizeForWin(tx);
       if (!prize) {
-        result = generateSpin("NEAR_MISS");
+        result = generateSpin("LOSS");
       }
     }
 

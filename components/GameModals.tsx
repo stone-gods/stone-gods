@@ -75,8 +75,7 @@ function useCountdown(targetIso: string | null) {
   return parts;
 }
 
-function resultSplashText(outcome: SpinApiResponse["outcome"], noSpinsLeft: boolean): string {
-  if (outcome === "NEAR_MISS") return "So close!";
+function resultSplashText(noSpinsLeft: boolean): string {
   if (noSpinsLeft) return "No win this time.\nCome back tomorrow.";
   return "No win this time.";
 }
@@ -87,15 +86,11 @@ function pad(n: number) {
 
 function ResultSplash({ result }: { result: SpinApiResponse }) {
   const noSpinsLeft = result.spinsRemaining === 0 || result.canSpinAgainAt !== null;
-  const lines = resultSplashText(result.outcome, noSpinsLeft).split("\n");
+  const lines = resultSplashText(noSpinsLeft).split("\n");
 
   return (
     <div className="result-splash" role="status" aria-live="polite">
-      <p
-        className={`result-splash__text${
-          result.outcome === "NEAR_MISS" ? " result-splash__text--near" : ""
-        }`}
-      >
+      <p className="result-splash__text">
         {lines.map((line, i) => (
           <span key={i} className="result-splash__line">
             {line}

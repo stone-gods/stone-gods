@@ -1,5 +1,7 @@
-import type { PrizeInfo } from "@/types/game";
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { dasRpc } from "@/lib/das-rpc";
+import type { PrizeInfo } from "@/types/game";
 
 type HeliusAsset = {
   id: string;
@@ -10,11 +12,14 @@ type HeliusAsset = {
   token_info?: {
     token_program?: string;
     associated_token_address?: string;
+    supply?: number;
+    decimals?: number;
   };
   content?: {
-    metadata?: { name?: string };
-    links?: { image?: string };
-    files?: { uri?: string }[];
+    json_uri?: string;
+    metadata?: { name?: string; symbol?: string };
+    links?: { image?: string; external_url?: string };
+    files?: { uri?: string; mime?: string }[];
   };
 };
 
@@ -22,12 +27,7 @@ type GetAssetsByOwnerResult = {
   items: HeliusAsset[];
 };
 
-const NFT_INTERFACES = new Set([
-  "V1_NFT",
-  "ProgrammableNFT",
-  "MplCoreAsset",
-  "Custom",
-]);
+const FUNGIBLE_INTERFACES = new Set(["FungibleAsset", "FungibleToken"]);
 
 function extractPrizeNumber(name: string): string | null {
   const hashMatch = name.match(/#\s*(\d+)\b/);
@@ -37,16 +37,41 @@ function extractPrizeNumber(name: string): string | null {
   return trailingMatch?.[1] ?? null;
 }
 
-function assetToPrize(asset: HeliusAsset): PrizeInfo | null {
-  const name = asset.content?.metadata?.name?.trim();
-  if (!name) return null;
-
-  const imageUrl =
+async function resolveImageUrl(asset: HeliusAsset): Promise<string | null> {
+  const direct =
     asset.content?.links?.image?.trim() ??
+    asset.content?.files?.find((file) => file.uri?.trim() && file.mime?.startsWith("image/"))
+      ?.uri ??
     asset.content?.files?.find((file) => file.uri?.trim())?.uri?.trim() ??
     null;
 
-  if (!imageUrl) return null;
+  if (direct) return direct;
+
+  const jsonUri = asset.content?.json_uri?.trim();
+  if (!jsonUri) return null;
+
+  try {
+    const res = await fetch(jsonUri, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const meta = (await res.json()) as { image?: string };
+    return meta.image?.trim() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveAssetName(asset: HeliusAsset): string {
+  return (
+    asset.content?.metadata?.name?.trim() ||
+    asset.content?.metadata?.symbol?.trim() ||
+    "NFT Prize"
+  );
+}
+
+async function assetToPrize(asset: HeliusAsset): Promise<PrizeInfo | null> {
+  const name = resolveAssetName(asset);
+  const imageUrl =
+    (await resolveImageUrl(asset)) ?? "/assets/stone-gods-thumb.png";
 
   return {
     mintAddress: asset.id,
@@ -59,16 +84,18 @@ function assetToPrize(asset: HeliusAsset): PrizeInfo | null {
 function isEligibleNonCompressedNft(asset: HeliusAsset): boolean {
   if (asset.burnt) return false;
   if (asset.compression?.compressed) return false;
-  if (!asset.interface || !NFT_INTERFACES.has(asset.interface)) return false;
   if (!asset.ownership?.owner) return false;
-  if (!asset.token_info?.associated_token_address) return false;
+  if (asset.interface && FUNGIBLE_INTERFACES.has(asset.interface)) return false;
+
+  const decimals = asset.token_info?.decimals;
+  const supply = asset.token_info?.supply;
+  if (decimals !== undefined && decimals !== 0) return false;
+  if (supply !== undefined && supply !== 1) return false;
+
   return true;
 }
 
-async function fetchPrizeNftsViaDas(
-  ownerAddress: string,
-  rpcUrl: string,
-): Promise<PrizeInfo[]> {
+async function fetchDasItems(ownerAddress: string, rpcUrl: string): Promise<HeliusAsset[]> {
   const items: HeliusAsset[] = [];
   let page = 1;
 
@@ -79,7 +106,8 @@ async function fetchPrizeNftsViaDas(
       limit: 1000,
       displayOptions: {
         showFungible: false,
-        showCollectionMetadata: false,
+        showUnverifiedCollections: true,
+        showCollectionMetadata: true,
       },
     });
 
@@ -88,13 +116,100 @@ async function fetchPrizeNftsViaDas(
     page += 1;
   }
 
+  return items;
+}
+
+async function fetchMintAddressesFromTokenAccounts(
+  rpcUrl: string,
+  ownerAddress: string,
+): Promise<string[]> {
+  const connection = new Connection(rpcUrl, "confirmed");
+  const owner = new PublicKey(ownerAddress);
+  const mints = new Set<string>();
+
+  for (const programId of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
+    const accounts = await connection.getParsedTokenAccountsByOwner(owner, { programId });
+
+    for (const { account } of accounts.value) {
+      const parsed = account.data;
+      if (parsed.program !== "spl-token" || parsed.parsed.type !== "account") continue;
+
+      const info = parsed.parsed.info as {
+        mint: string;
+        tokenAmount: { decimals: number; uiAmount: number | null };
+      };
+
+      if (info.tokenAmount.decimals === 0 && info.tokenAmount.uiAmount === 1) {
+        mints.add(info.mint);
+      }
+    }
+  }
+
+  return [...mints];
+}
+
+async function fetchAssetById(rpcUrl: string, id: string): Promise<HeliusAsset | null> {
+  const direct = await dasRpc<HeliusAsset>(rpcUrl, "getAsset", { id }).catch(() => null);
+  if (direct) return direct;
+
+  // `id` may be a token account address rather than mint — resolve to mint via on-chain data.
+  try {
+    const connection = new Connection(rpcUrl, "confirmed");
+    const info = await connection.getParsedAccountInfo(new PublicKey(id));
+    const parsed = info.value?.data;
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "parsed" in parsed &&
+      parsed.parsed &&
+      typeof parsed.parsed === "object" &&
+      "info" in parsed.parsed
+    ) {
+      const mint = (parsed.parsed.info as { mint?: string }).mint;
+      if (mint) {
+        return await dasRpc<HeliusAsset>(rpcUrl, "getAsset", { id: mint }).catch(() => null);
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+async function prizesFromAssets(assets: HeliusAsset[]): Promise<PrizeInfo[]> {
   const prizes: PrizeInfo[] = [];
   const seenMints = new Set<string>();
 
-  for (const asset of items) {
+  for (const asset of assets) {
     if (!isEligibleNonCompressedNft(asset)) continue;
 
-    const prize = assetToPrize(asset);
+    const prize = await assetToPrize(asset);
+    if (!prize || seenMints.has(prize.mintAddress)) continue;
+
+    seenMints.add(prize.mintAddress);
+    prizes.push(prize);
+  }
+
+  return prizes;
+}
+
+async function fetchPrizeNftsViaDas(
+  ownerAddress: string,
+  rpcUrl: string,
+): Promise<PrizeInfo[]> {
+  const dasItems = await fetchDasItems(ownerAddress, rpcUrl);
+  const prizes = await prizesFromAssets(dasItems);
+  const seenMints = new Set(prizes.map((prize) => prize.mintAddress));
+
+  const onChainMints = await fetchMintAddressesFromTokenAccounts(rpcUrl, ownerAddress);
+  const missingMints = onChainMints.filter((mint) => !seenMints.has(mint));
+
+  for (const mint of missingMints) {
+    const asset = await fetchAssetById(rpcUrl, mint);
+    if (!asset || !isEligibleNonCompressedNft(asset)) continue;
+
+    const prize = await assetToPrize(asset);
     if (!prize || seenMints.has(prize.mintAddress)) continue;
 
     seenMints.add(prize.mintAddress);

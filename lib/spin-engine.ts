@@ -8,7 +8,6 @@ import {
 import type { ReelGrid, SpinResult, SymbolId } from "@/types/game";
 
 const NFT_WIN_THRESHOLD = 100; // 100 / 10_000 = 1% target
-const NEAR_MISS_THRESHOLD = 600; // 500 / 10_000 = 5% additional near misses
 
 export function paylineSymbols(reels: ReelGrid): [SymbolId, SymbolId, SymbolId] {
   return [
@@ -33,10 +32,9 @@ export function rollOutcome(
   random = randomInt,
 ): SpinOutcome {
   const roll = random(0, 10_000);
-  if (roll < NFT_WIN_THRESHOLD) {
-    return options.canAwardWin ? "NFT_WIN" : "NEAR_MISS";
+  if (roll < NFT_WIN_THRESHOLD && options.canAwardWin) {
+    return "NFT_WIN";
   }
-  if (roll < NEAR_MISS_THRESHOLD) return "NEAR_MISS";
   return "LOSS";
 }
 
@@ -46,11 +44,6 @@ function pickRandom<T>(items: readonly T[], random = randomInt): T {
 
 function pickCommon(random = randomInt): SymbolId {
   return pickRandom(COMMON_SYMBOLS, random);
-}
-
-function pickNonMatchingGod(exclude: SymbolId, random = randomInt): SymbolId {
-  const options = GOD_SYMBOLS.filter((s) => s !== exclude);
-  return pickRandom(options.length > 0 ? options : GOD_SYMBOLS, random);
 }
 
 function buildReelColumn(
@@ -70,29 +63,6 @@ function generateWinReels(random = randomInt): ReelGrid {
   ];
 }
 
-function generateNearMissReels(random = randomInt): ReelGrid {
-  const winningGod = pickRandom(GOD_SYMBOLS, random);
-  const missReel = random(0, 3);
-  const missSymbol =
-    random(0, 2) === 0
-      ? pickNonMatchingGod(winningGod, random)
-      : pickCommon(random);
-
-  const reels: ReelGrid = [
-    buildReelColumn(pickCommon(random), winningGod, pickCommon(random)),
-    buildReelColumn(pickCommon(random), winningGod, pickCommon(random)),
-    buildReelColumn(pickCommon(random), winningGod, pickCommon(random)),
-  ];
-
-  reels[missReel] = buildReelColumn(
-    pickCommon(random),
-    missSymbol,
-    pickCommon(random),
-  );
-
-  return reels;
-}
-
 function generateLossReels(random = randomInt): ReelGrid {
   for (let attempt = 0; attempt < 100; attempt++) {
     const reels: ReelGrid = [
@@ -106,7 +76,6 @@ function generateLossReels(random = randomInt): ReelGrid {
     }
   }
 
-  // Guaranteed no triple match on payline
   return [
     buildReelColumn("RUNE_BLUE", "RUNE_GREEN", "STONE"),
     buildReelColumn("STONE", "ARTIFACT_BLUE", "RUNE_BLUE"),
@@ -130,15 +99,12 @@ export function generateSpin(
   outcome: SpinOutcome,
   random = randomInt,
 ): SpinResult {
+  const resolvedOutcome = outcome === "NEAR_MISS" ? "LOSS" : outcome;
   const reels =
-    outcome === "NFT_WIN"
-      ? generateWinReels(random)
-      : outcome === "NEAR_MISS"
-        ? generateNearMissReels(random)
-        : generateLossReels(random);
+    resolvedOutcome === "NFT_WIN" ? generateWinReels(random) : generateLossReels(random);
 
-  assertReelsMatchOutcome(outcome, reels);
-  return { outcome, reels };
+  assertReelsMatchOutcome(resolvedOutcome, reels);
+  return { outcome: resolvedOutcome, reels };
 }
 
 export function resolveSpin(
@@ -164,7 +130,6 @@ export function outcomeMessage(
       }
       return "You won an NFT!";
     case "NEAR_MISS":
-      return unlimited ? "So close!" : "So close! Try again tomorrow.";
     case "LOSS":
       return unlimited
         ? "No win this time."
