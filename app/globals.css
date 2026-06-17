@@ -1092,6 +1092,42 @@
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
 }
 
+.game-modal--prize {
+  width: min(100%, 24rem);
+}
+
+.game-modal__prize {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.game-modal__prize-image {
+  width: min(100%, 10rem);
+  aspect-ratio: 1;
+  object-fit: contain;
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(253, 224, 71, 0.2);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.65),
+    0 0 24px rgba(253, 224, 71, 0.12);
+}
+
+.game-modal__prize-name {
+  margin: 0;
+  font-family: var(--font-bebas), system-ui, sans-serif;
+  font-size: clamp(1.35rem, 5.5cqi, 1.75rem);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fef3c7;
+  text-align: center;
+  line-height: 1.1;
+}
+
 .game-modal__heading--lose {
   color: #fca5a5;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);

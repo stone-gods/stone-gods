@@ -78,6 +78,10 @@ model Spin {
   collectedAt        DateTime?
   claimWalletAddress String?
   claimTxSignature   String?
+  prizeMintAddress   String?
+  prizeName          String?
+  prizeImageUrl      String?
+  prizeNumber        String?
   createdAt          DateTime    @default(now())
 
   @@index([gameSessionId, createdAt])

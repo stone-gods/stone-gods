@@ -10,7 +10,6 @@ export type PrizeWalletEnv = {
   rpcUrl: string;
   walletAddress: string;
   privateKey: string;
-  nftMintAddress: string;
 };
 
 function resolvePrivateKey(): string | undefined {
@@ -32,19 +31,16 @@ function resolveWalletAddress(privateKey: string): string {
 export function getPrizeWalletEnv(): PrizeWalletEnv | null {
   const rpcUrl = trim(process.env.SOLANA_RPC_URL);
   const privateKey = resolvePrivateKey();
-  const nftMintAddress = trim(process.env.NFT_MINT_ADDRESS);
 
-  if (!rpcUrl || !privateKey || !nftMintAddress) {
+  if (!rpcUrl || !privateKey) {
     return null;
   }
 
   try {
     const walletAddress = resolveWalletAddress(privateKey);
-    // Validate formats early so misconfiguration fails at claim time with a clear error.
     new PublicKey(walletAddress);
-    new PublicKey(nftMintAddress);
 
-    return { rpcUrl, walletAddress, privateKey, nftMintAddress };
+    return { rpcUrl, walletAddress, privateKey };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid prize wallet configuration";
     throw new Error(message);
@@ -61,4 +57,23 @@ export function isPrizeWalletConfigured(): boolean {
 
 export function isMockNftClaimEnabled(): boolean {
   return trim(process.env.MOCK_NFT_CLAIM)?.toLowerCase() === "true";
+}
+
+export function requirePrizeWalletEnv(): PrizeWalletEnv {
+  if (isMockNftClaimEnabled()) {
+    return {
+      rpcUrl: trim(process.env.SOLANA_RPC_URL) ?? "mock",
+      walletAddress: trim(process.env.PRIZE_WALLET) ?? "mock-prize-wallet",
+      privateKey: "mock",
+    };
+  }
+
+  const env = getPrizeWalletEnv();
+  if (!env) {
+    throw new Error(
+      "Prize wallet is not configured. Set SOLANA_RPC_URL, PRIZE_WALLET, and PRIZE_WALLET_PRIVATE_KEY.",
+    );
+  }
+
+  return env;
 }

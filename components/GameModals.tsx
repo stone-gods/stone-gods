@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { isValidSolanaWalletAddress } from "@/lib/solana-wallet";
-import type { SpinApiResponse, SpinStatusResponse } from "@/types/game";
+import type { PrizeInfo, SpinApiResponse, SpinStatusResponse } from "@/types/game";
 
 export type PostSpinPhase = "idle" | "splash" | "cooldown" | "win-celebration" | "claim";
 
@@ -106,6 +106,22 @@ function ResultSplash({ result }: { result: SpinApiResponse }) {
   );
 }
 
+function PrizeWinCard({ prize }: { prize: PrizeInfo }) {
+  const displayName = prize.number ? `${prize.name} #${prize.number}` : prize.name;
+
+  return (
+    <div className="game-modal__prize">
+      <img
+        className="game-modal__prize-image"
+        src={prize.imageUrl}
+        alt={displayName}
+        draggable={false}
+      />
+      <p className="game-modal__prize-name">{displayName}</p>
+    </div>
+  );
+}
+
 type GameModalsProps = {
   refreshKey?: number;
   lastSpinResult?: SpinApiResponse | null;
@@ -195,6 +211,13 @@ export default function GameModals({
         : postSpinPhase === "idle" && !lastSpinResult
           ? (spinStatus?.uncollectedWin?.spinId ?? null)
           : null;
+
+  const pendingPrize: PrizeInfo | null =
+    postSpinPhase === "claim" && lastSpinResult?.prize
+      ? lastSpinResult.prize
+      : postSpinPhase === "idle" && !lastSpinResult
+        ? (spinStatus?.uncollectedWin?.prize ?? null)
+        : (lastSpinResult?.prize ?? null);
 
   const showResultSplash =
     postSpinPhase === "splash" &&
@@ -321,14 +344,12 @@ export default function GameModals({
 
   if (!spinStatus) return null;
 
-  if (pendingWinId) {
+  if (pendingWinId && pendingPrize) {
     return (
       <div className="game-modal-backdrop game-modal-backdrop--locked">
-        <div className="game-modal" role="dialog" aria-modal="true">
-          <p className="game-modal__heading game-modal__heading--win">Congrats!</p>
-          <p className="game-modal__text game-modal__text--highlight">
-            You have won a Stone Gods NFT
-          </p>
+        <div className="game-modal game-modal--prize" role="dialog" aria-modal="true">
+          <p className="game-modal__heading game-modal__heading--win">You have won</p>
+          <PrizeWinCard prize={pendingPrize} />
           <label className="game-modal__label">
             Enter Solana wallet
             <input

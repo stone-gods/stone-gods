@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { ensureGameSession, requireAuthUserId } from "@/lib/game-session";
 import { prisma } from "@/lib/prisma";
-import { transferStoneGodNft } from "@/lib/solana-nft-transfer";
+import { transferPrizeNft } from "@/lib/solana-nft-transfer";
 import {
   isValidSolanaWalletAddress,
   normalizeSolanaWalletAddress,
 } from "@/lib/solana-wallet";
 import type { ClaimApiResponse } from "@/types/game";
+import { prizeInfoFromSpin } from "@/types/game";
 
 export const runtime = "nodejs";
 
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
   const normalizedWallet = normalizeSolanaWalletAddress(walletAddress);
   const gameSession = await ensureGameSession(userId);
 
-  const prize = await prisma.spin.findFirst({
+  const prizeSpin = await prisma.spin.findFirst({
     where: {
       ...(body.spinId ? { id: body.spinId } : {}),
       gameSessionId: gameSession.id,
@@ -46,13 +47,18 @@ export async function POST(request: Request) {
     orderBy: { createdAt: "desc" },
   });
 
-  if (!prize) {
+  if (!prizeSpin) {
     return NextResponse.json({ error: "No prize to claim" }, { status: 400 });
+  }
+
+  const prize = prizeInfoFromSpin(prizeSpin);
+  if (!prize) {
+    return NextResponse.json({ error: "Prize details missing for this win" }, { status: 500 });
   }
 
   let txSignature: string;
   try {
-    txSignature = await transferStoneGodNft(normalizedWallet);
+    txSignature = await transferPrizeNft(normalizedWallet, prize.mintAddress);
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "NFT transfer failed";
@@ -63,7 +69,7 @@ export async function POST(request: Request) {
   const now = new Date();
 
   await prisma.spin.update({
-    where: { id: prize.id },
+    where: { id: prizeSpin.id },
     data: {
       collectedAt: now,
       claimWalletAddress: normalizedWallet,
@@ -72,10 +78,13 @@ export async function POST(request: Request) {
   });
 
   const response: ClaimApiResponse = {
-    spinId: prize.id,
+    spinId: prizeSpin.id,
     walletAddress: normalizedWallet,
     txSignature,
-    message: "Stone God NFT sent to your wallet!",
+    message: prize.number
+      ? `${prize.name} #${prize.number} sent to your wallet!`
+      : `${prize.name} sent to your wallet!`,
+    prize,
   };
 
   return NextResponse.json(response);

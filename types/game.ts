@@ -14,6 +14,13 @@ export type SymbolId =
 /** Three reels; each reel is [top, center, bottom]. Payline = center row. */
 export type ReelGrid = [SymbolId, SymbolId, SymbolId][];
 
+export type PrizeInfo = {
+  mintAddress: string;
+  name: string;
+  imageUrl: string;
+  number: string | null;
+};
+
 export type SpinResult = {
   outcome: SpinOutcome;
   reels: ReelGrid;
@@ -26,6 +33,7 @@ export type SpinApiResponse = {
   canSpinAgainAt: string | null;
   spinsRemaining?: number;
   message: string;
+  prize?: PrizeInfo | null;
 };
 
 export type SpinStatusResponse = {
@@ -35,12 +43,14 @@ export type SpinStatusResponse = {
   nextSpinAt: string | null;
   uncollectedWin: {
     spinId: string;
+    prize: PrizeInfo;
   } | null;
   lastSpin: {
     spinId: string;
     outcome: SpinOutcome;
     reels: ReelGrid;
     createdAt: string;
+    prize?: PrizeInfo | null;
   } | null;
 };
 
@@ -49,4 +59,23 @@ export type ClaimApiResponse = {
   walletAddress: string;
   txSignature: string;
   message: string;
+  prize: PrizeInfo;
 };
+
+export function prizeInfoFromSpin(spin: {
+  prizeMintAddress: string | null;
+  prizeName: string | null;
+  prizeImageUrl: string | null;
+  prizeNumber: string | null;
+}): PrizeInfo | null {
+  if (!spin.prizeMintAddress || !spin.prizeName || !spin.prizeImageUrl) {
+    return null;
+  }
+
+  return {
+    mintAddress: spin.prizeMintAddress,
+    name: spin.prizeName,
+    imageUrl: spin.prizeImageUrl,
+    number: spin.prizeNumber,
+  };
+}

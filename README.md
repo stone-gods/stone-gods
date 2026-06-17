@@ -57,9 +57,8 @@ Winners claim via Discord login + Solana wallet address. Set these env vars on V
 | Variable | Description |
 |----------|-------------|
 | `SOLANA_RPC_URL` | Solana RPC endpoint (e.g. Helius) |
-| `PRIZE_WALLET` | Public key of the wallet holding Stone God NFTs |
+| `PRIZE_WALLET` | Public key of the wallet holding prize NFTs |
 | `PRIZE_WALLET_PRIVATE_KEY` | Base58-encoded secret key for that wallet (signs transfers) |
-| `NFT_MINT_ADDRESS` | Mint address of the Stone God NFT |
 | `MOCK_NFT_CLAIM` | `true` skips on-chain transfer (testing only) |
 
-The prize wallet must hold the NFT in its associated token account. `PRIZE_WALLET` must match the public key derived from `PRIZE_WALLET_PRIVATE_KEY`.
+On win, the server randomly assigns a **non-compressed** NFT from the prize wallet (via Helius DAS — cNFT/spam airdrops are excluded). `PRIZE_WALLET` must match the public key derived from `PRIZE_WALLET_PRIVATE_KEY`.

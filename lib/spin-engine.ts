@@ -153,10 +153,16 @@ export function resolveSpin(
 export function outcomeMessage(
   outcome: SpinOutcome,
   unlimited = false,
+  prize?: { name: string; number: string | null } | null,
 ): string {
   switch (outcome) {
     case "NFT_WIN":
-      return "You won a Stone God NFT!";
+      if (prize) {
+        return prize.number
+          ? `You won ${prize.name} #${prize.number}!`
+          : `You won ${prize.name}!`;
+      }
+      return "You won an NFT!";
     case "NEAR_MISS":
       return unlimited ? "So close!" : "So close! Try again tomorrow.";
     case "LOSS":

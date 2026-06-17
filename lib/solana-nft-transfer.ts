@@ -12,23 +12,20 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import bs58 from "bs58";
-import { getPrizeWalletEnv, isMockNftClaimEnabled } from "@/lib/prize-wallet-env";
+import { isMockNftClaimEnabled, requirePrizeWalletEnv } from "@/lib/prize-wallet-env";
 
-export async function transferStoneGodNft(recipientAddress: string): Promise<string> {
+export async function transferPrizeNft(
+  recipientAddress: string,
+  mintAddress: string,
+): Promise<string> {
   if (isMockNftClaimEnabled()) {
-    return `mock-${Date.now()}`;
+    return `mock-${mintAddress}-${Date.now()}`;
   }
 
-  const env = getPrizeWalletEnv();
-  if (!env) {
-    throw new Error(
-      "Prize wallet is not configured. Set SOLANA_RPC_URL, PRIZE_WALLET, PRIZE_WALLET_PRIVATE_KEY, and NFT_MINT_ADDRESS.",
-    );
-  }
-
+  const env = requirePrizeWalletEnv();
   const connection = new Connection(env.rpcUrl, "confirmed");
   const prizeWallet = Keypair.fromSecretKey(bs58.decode(env.privateKey));
-  const mint = new PublicKey(env.nftMintAddress);
+  const mint = new PublicKey(mintAddress);
   const recipient = new PublicKey(recipientAddress);
 
   const prizeAta = await getAssociatedTokenAddress(mint, prizeWallet.publicKey);

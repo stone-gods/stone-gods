@@ -6,10 +6,12 @@ import {
 import { getSpinAllowanceForSession } from "@/lib/spin-allowance-server";
 import { isDevForceWin, isDevUnlimitedSpins } from "@/lib/dev";
 import { ensureGameSession, requireAuthUserId } from "@/lib/game-session";
+import { assignPrizeForWin, prizeFieldsFromInfo } from "@/lib/prize-assignment";
 import { prisma } from "@/lib/prisma";
 import { generateSpin, outcomeMessage, resolveSpin } from "@/lib/spin-engine";
 import { canAwardNftWin } from "@/lib/win-pool";
-import type { ReelGrid, SpinStatusResponse } from "@/types/game";
+import type { PrizeInfo, ReelGrid, SpinStatusResponse } from "@/types/game";
+import { prizeInfoFromSpin } from "@/types/game";
 
 export const runtime = "nodejs";
 
@@ -55,28 +57,33 @@ export async function GET() {
 
   const lastSpin = session.spins[0] ?? null;
 
-  const uncollectedWin = await prisma.spin.findFirst({
+  const uncollectedWinRow = await prisma.spin.findFirst({
     where: {
       gameSessionId: gameSession.id,
       outcome: "NFT_WIN",
       collectedAt: null,
     },
     orderBy: { createdAt: "desc" },
-    select: { id: true },
   });
+
+  const uncollectedPrize = uncollectedWinRow ? prizeInfoFromSpin(uncollectedWinRow) : null;
 
   const response: SpinStatusResponse = {
     canSpin: allowance.canSpin,
     spinsRemaining: allowance.spinsRemaining,
     dailySpinLimit: dailyLimit,
     nextSpinAt: unlimited ? null : (allowance.nextSpinAt?.toISOString() ?? null),
-    uncollectedWin: uncollectedWin ? { spinId: uncollectedWin.id } : null,
+    uncollectedWin:
+      uncollectedWinRow && uncollectedPrize
+        ? { spinId: uncollectedWinRow.id, prize: uncollectedPrize }
+        : null,
     lastSpin: lastSpin
       ? {
           spinId: lastSpin.id,
           outcome: lastSpin.outcome,
           reels: parseReels(lastSpin.symbols),
           createdAt: lastSpin.createdAt.toISOString(),
+          prize: prizeInfoFromSpin(lastSpin),
         }
       : null,
   };
@@ -114,23 +121,33 @@ export async function POST() {
     }
   }
 
-  const { spin, outcome, reels } = await prisma.$transaction(async (tx) => {
+  const { spin, outcome, reels, prize } = await prisma.$transaction(async (tx) => {
     const [completedSpinCount, nftWinCount] = await Promise.all([
       tx.spin.count(),
       tx.spin.count({ where: { outcome: "NFT_WIN" } }),
     ]);
 
-    const result = isDevForceWin()
+    let result = isDevForceWin()
       ? generateSpin("NFT_WIN")
       : resolveSpin({
           canAwardWin: canAwardNftWin(completedSpinCount, nftWinCount),
         });
+
+    let prize: PrizeInfo | null = null;
+
+    if (result.outcome === "NFT_WIN") {
+      prize = await assignPrizeForWin(tx);
+      if (!prize) {
+        result = generateSpin("NEAR_MISS");
+      }
+    }
 
     const created = await tx.spin.create({
       data: {
         gameSessionId: gameSession.id,
         outcome: result.outcome,
         symbols: result.reels,
+        ...(prize ? prizeFieldsFromInfo(prize) : {}),
       },
     });
 
@@ -141,7 +158,7 @@ export async function POST() {
       });
     }
 
-    return { spin: created, outcome: result.outcome, reels: result.reels };
+    return { spin: created, outcome: result.outcome, reels: result.reels, prize };
   });
 
   if (unlimited) {
@@ -149,24 +166,25 @@ export async function POST() {
       spinId: spin.id,
       outcome,
       reels,
+      prize,
       canSpinAgainAt: null,
       spinsRemaining: dailyLimit,
-      message: outcomeMessage(outcome, unlimited),
+      message: outcomeMessage(outcome, unlimited, prize),
     });
   }
 
   const updatedAllowance = await getSpinAllowanceForSession(session, now);
-  const spinsAfter = updatedAllowance.spinsInPeriod;
   const canSpinAgain = updatedAllowance.canSpin;
 
   return NextResponse.json({
     spinId: spin.id,
     outcome,
     reels,
+    prize,
     canSpinAgainAt: canSpinAgain
       ? null
       : cooldownUntilFromLastSpin(spin.createdAt).toISOString(),
     spinsRemaining: updatedAllowance.spinsRemaining,
-    message: outcomeMessage(outcome, unlimited),
+    message: outcomeMessage(outcome, unlimited, prize),
   });
 }
