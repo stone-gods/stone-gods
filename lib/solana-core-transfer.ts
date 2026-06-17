@@ -1,5 +1,10 @@
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
-import { mplCore, transfer } from "@metaplex-foundation/mpl-core";
+import {
+  fetchAsset,
+  fetchCollection,
+  mplCore,
+  transfer,
+} from "@metaplex-foundation/mpl-core";
 import {
   createSignerFromKeypair,
   publicKey,
@@ -20,13 +25,18 @@ export async function transferCoreAsset(
   const signer = createSignerFromKeypair(umi, umiKeypair);
   umi.use(signerIdentity(signer));
 
+  const asset = await fetchAsset(umi, assetAddress);
+  const collection = collectionAddress
+    ? await fetchCollection(umi, collectionAddress)
+    : undefined;
+
   const result = await transfer(umi, {
-    asset: publicKey(assetAddress),
+    asset,
+    ...(collection ? { collection } : {}),
     newOwner: publicKey(recipientAddress),
-    ...(collectionAddress ? { collection: publicKey(collectionAddress) } : {}),
   }).sendAndConfirm(umi, {
     confirm: { commitment: "confirmed" },
   });
 
-  return result.signature;
+  return String(result.signature);
 }
