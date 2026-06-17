@@ -12,3 +12,23 @@ export function canAwardNftWin(
   const maxWinsAllowed = Math.floor(completedSpinCount / poolSize) + 1;
   return nftWinCount < maxWinsAllowed;
 }
+
+/**
+ * Guarantee one win in each pool window if random rolls never hit.
+ * e.g. pool size 10 → the 10th global spin wins if none yet in that window.
+ */
+export function shouldForceWinInWindow(
+  completedSpinCount: number,
+  nftWinCount: number,
+  poolSize = getWinPoolSize(),
+): boolean {
+  if (!canAwardNftWin(completedSpinCount, nftWinCount, poolSize)) {
+    return false;
+  }
+
+  const isLastSpinInWindow = completedSpinCount % poolSize === poolSize - 1;
+  const winsInPriorFullWindows = Math.floor(completedSpinCount / poolSize);
+  const noWinYetThisWindow = nftWinCount === winsInPriorFullWindows;
+
+  return isLastSpinInWindow && noWinYetThisWindow;
+}

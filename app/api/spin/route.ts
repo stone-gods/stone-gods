@@ -19,7 +19,7 @@ import {
   lockGameSessionForSpin,
   lockSpinWinPool,
 } from "@/lib/spin-transaction-locks";
-import { canAwardNftWin } from "@/lib/win-pool";
+import { canAwardNftWin, shouldForceWinInWindow } from "@/lib/win-pool";
 import type { PrizeInfo, ReelGrid, SpinStatusResponse } from "@/types/game";
 import { prizeInfoFromSpin } from "@/types/game";
 
@@ -180,10 +180,14 @@ export async function POST() {
         tx.spin.count({ where: { outcome: "NFT_WIN" } }),
       ]);
 
+      const poolAllowsWin = canAwardNftWin(completedSpinCount, nftWinCount);
+      const forceWin = shouldForceWinInWindow(completedSpinCount, nftWinCount);
+
       let result = isDevForceWin()
         ? generateSpin("NFT_WIN")
         : resolveSpin({
-            canAwardWin: canAwardNftWin(completedSpinCount, nftWinCount),
+            canAwardWin: poolAllowsWin,
+            forceWin,
           });
 
       let prize: PrizeInfo | null = null;

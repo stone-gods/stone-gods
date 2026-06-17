@@ -1,12 +1,12 @@
 import { randomInt } from "crypto";
 import type { SpinOutcome } from "@/app/generated/prisma/client";
-import { getNftWinThreshold, getWinPoolSize, WIN_ROLL_DENOMINATOR } from "@/lib/game-odds";
+import { getNftWinThreshold, getWinPoolSize } from "@/lib/game-odds";
 import {
   COMMON_SYMBOLS,
   GOD_SYMBOLS,
   PAYLINE_INDEX,
 } from "@/lib/symbols";
-import { canAwardNftWin } from "@/lib/win-pool";
+import { canAwardNftWin, shouldForceWinInWindow } from "@/lib/win-pool";
 import type { ReelGrid, SpinResult, SymbolId } from "@/types/game";
 
 export function paylineSymbols(reels: ReelGrid): [SymbolId, SymbolId, SymbolId] {
@@ -30,12 +30,16 @@ export function paylineHasThreeGods(reels: ReelGrid): boolean {
 export function rollOutcome(
   options: { canAwardWin: boolean },
   random = randomInt,
-  threshold = getNftWinThreshold(),
+  oneInN = getNftWinThreshold(),
 ): SpinOutcome {
-  const roll = random(0, WIN_ROLL_DENOMINATOR);
-  if (roll < threshold && options.canAwardWin) {
+  if (!options.canAwardWin || oneInN <= 0) {
+    return "LOSS";
+  }
+
+  if (random(0, oneInN) === 0) {
     return "NFT_WIN";
   }
+
   return "LOSS";
 }
 
@@ -109,11 +113,14 @@ export function generateSpin(
 }
 
 export function resolveSpin(
-  options?: { canAwardWin?: boolean },
+  options?: { canAwardWin?: boolean; forceWin?: boolean },
   random = randomInt,
 ): SpinResult {
   const canAwardWin = options?.canAwardWin ?? true;
-  const outcome = rollOutcome({ canAwardWin }, random);
+  const outcome =
+    options?.forceWin && canAwardWin
+      ? "NFT_WIN"
+      : rollOutcome({ canAwardWin }, random);
   return generateSpin(outcome, random);
 }
 
@@ -165,7 +172,10 @@ export function simulateWinRateWithPool(
     }
 
     const canAwardWin = canAwardNftWin(i, wins, poolSize);
-    const outcome = rollOutcome({ canAwardWin }, random);
+    const forceWin = shouldForceWinInWindow(i, wins, poolSize);
+    const outcome = forceWin
+      ? "NFT_WIN"
+      : rollOutcome({ canAwardWin }, random);
     if (outcome === "NFT_WIN") {
       wins++;
       windowWins++;
