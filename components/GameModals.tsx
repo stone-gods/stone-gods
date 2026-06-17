@@ -506,7 +506,7 @@ export default function GameModals({
     return (
       <div className="game-modal-backdrop game-modal-backdrop--locked">
         <div className="game-modal" role="dialog" aria-modal="true">
-          <p className="game-modal__heading game-modal__heading--lose">Bad luck</p>
+          <p className="game-modal__heading game-modal__heading--lose">0 spins remaining</p>
           <CountdownText
             targetIso={lastSpinResult.canSpinAgainAt ?? spinStatus.nextSpinAt}
           />
