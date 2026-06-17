@@ -1,10 +1,16 @@
 import type { PrizeInfo } from "@/types/game";
+import { dasRpc } from "@/lib/das-rpc";
 
 type HeliusAsset = {
   id: string;
   interface?: string;
   burnt?: boolean;
   compression?: { compressed?: boolean };
+  ownership?: { owner?: string };
+  token_info?: {
+    token_program?: string;
+    associated_token_address?: string;
+  };
   content?: {
     metadata?: { name?: string };
     links?: { image?: string };
@@ -54,34 +60,9 @@ function isEligibleNonCompressedNft(asset: HeliusAsset): boolean {
   if (asset.burnt) return false;
   if (asset.compression?.compressed) return false;
   if (!asset.interface || !NFT_INTERFACES.has(asset.interface)) return false;
+  if (!asset.ownership?.owner) return false;
+  if (!asset.token_info?.associated_token_address) return false;
   return true;
-}
-
-async function dasRpc<T>(
-  rpcUrl: string,
-  method: string,
-  params: Record<string, unknown>,
-): Promise<T> {
-  const res = await fetch(rpcUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: "stone-gods", method, params }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Solana RPC request failed (${res.status})`);
-  }
-
-  const json = (await res.json()) as { result?: T; error?: { message?: string } };
-  if (json.error) {
-    throw new Error(json.error.message ?? "Solana RPC error");
-  }
-
-  if (!json.result) {
-    throw new Error("Solana RPC returned no result");
-  }
-
-  return json.result;
 }
 
 async function fetchPrizeNftsViaDas(
