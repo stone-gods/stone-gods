@@ -50,7 +50,16 @@ Set `DATABASE_URL` (pooled Neon URL) in project env. Build runs `prisma generate
 
 To deploy migrations manually: `npx tsx scripts/migrate-deploy.ts`
 
-## Phase 2+ (not yet implemented)
+## NFT prize claim (Solana)
 
-- Discord / X login
-- Solana wallet claim for NFT winners
+Winners claim via Discord login + Solana wallet address. Set these env vars on Vercel and locally:
+
+| Variable | Description |
+|----------|-------------|
+| `SOLANA_RPC_URL` | Solana RPC endpoint (e.g. Helius) |
+| `PRIZE_WALLET` | Public key of the wallet holding Stone God NFTs |
+| `PRIZE_WALLET_PRIVATE_KEY` | Base58-encoded secret key for that wallet (signs transfers) |
+| `NFT_MINT_ADDRESS` | Mint address of the Stone God NFT |
+| `MOCK_NFT_CLAIM` | `true` skips on-chain transfer (testing only) |
+
+The prize wallet must hold the NFT in its associated token account. `PRIZE_WALLET` must match the public key derived from `PRIZE_WALLET_PRIVATE_KEY`.

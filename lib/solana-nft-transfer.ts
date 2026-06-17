@@ -12,29 +12,29 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import bs58 from "bs58";
-import { getTreasuryEnv, isMockNftClaimEnabled } from "@/lib/treasury-env";
+import { getPrizeWalletEnv, isMockNftClaimEnabled } from "@/lib/prize-wallet-env";
 
 export async function transferStoneGodNft(recipientAddress: string): Promise<string> {
   if (isMockNftClaimEnabled()) {
     return `mock-${Date.now()}`;
   }
 
-  const env = getTreasuryEnv();
+  const env = getPrizeWalletEnv();
   if (!env) {
     throw new Error(
-      "NFT treasury is not configured. Set SOLANA_RPC_URL, TREASURY_PRIVATE_KEY, and NFT_MINT_ADDRESS.",
+      "Prize wallet is not configured. Set SOLANA_RPC_URL, PRIZE_WALLET, PRIZE_WALLET_PRIVATE_KEY, and NFT_MINT_ADDRESS.",
     );
   }
 
   const connection = new Connection(env.rpcUrl, "confirmed");
-  const treasury = Keypair.fromSecretKey(bs58.decode(env.privateKey));
+  const prizeWallet = Keypair.fromSecretKey(bs58.decode(env.privateKey));
   const mint = new PublicKey(env.nftMintAddress);
   const recipient = new PublicKey(recipientAddress);
 
-  const treasuryAta = await getAssociatedTokenAddress(mint, treasury.publicKey);
+  const prizeAta = await getAssociatedTokenAddress(mint, prizeWallet.publicKey);
   const recipientAta = await getAssociatedTokenAddress(mint, recipient);
 
-  await getAccount(connection, treasuryAta);
+  await getAccount(connection, prizeAta);
 
   const tx = new Transaction();
 
@@ -43,7 +43,7 @@ export async function transferStoneGodNft(recipientAddress: string): Promise<str
   } catch {
     tx.add(
       createAssociatedTokenAccountInstruction(
-        treasury.publicKey,
+        prizeWallet.publicKey,
         recipientAta,
         recipient,
         mint,
@@ -52,10 +52,10 @@ export async function transferStoneGodNft(recipientAddress: string): Promise<str
   }
 
   tx.add(
-    createTransferInstruction(treasuryAta, recipientAta, treasury.publicKey, 1),
+    createTransferInstruction(prizeAta, recipientAta, prizeWallet.publicKey, 1),
   );
 
-  return sendAndConfirmTransaction(connection, tx, [treasury], {
+  return sendAndConfirmTransaction(connection, tx, [prizeWallet], {
     commitment: "confirmed",
   });
 }
