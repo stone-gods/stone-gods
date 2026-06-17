@@ -2,8 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
+import { isMockTxSignature, solanaTxExplorerUrl } from "@/lib/solana-explorer";
 import { isValidSolanaWalletAddress } from "@/lib/solana-wallet";
-import type { PrizeInfo, SpinApiResponse, SpinStatusResponse } from "@/types/game";
+import type {
+  ClaimApiResponse,
+  PrizeInfo,
+  SpinApiResponse,
+  SpinStatusResponse,
+} from "@/types/game";
+import { formatPrizeDisplayName } from "@/types/game";
 
 export type PostSpinPhase = "idle" | "splash" | "cooldown" | "win-celebration" | "claim";
 
@@ -101,11 +108,6 @@ function ResultSplash({ result }: { result: SpinApiResponse }) {
   );
 }
 
-function formatPrizeDisplayName(prize: PrizeInfo): string {
-  if (!prize.number || prize.name.includes("#")) return prize.name;
-  return `${prize.name} #${prize.number}`;
-}
-
 function PrizeWinCard({ prize }: { prize: PrizeInfo }) {
   const displayName = formatPrizeDisplayName(prize);
 
@@ -149,6 +151,7 @@ export default function GameModals({
   const [walletAddress, setWalletAddress] = useState("");
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
+  const [lastClaimResult, setLastClaimResult] = useState<ClaimApiResponse | null>(null);
 
   const returnVisitCountdown = useCountdown(spinStatus?.nextSpinAt ?? null);
   const postSpinCountdown = useCountdown(
@@ -185,6 +188,12 @@ export default function GameModals({
       void fetchStatus();
     }
   }, [returnVisitCountdown.done, spinStatus, fetchStatus]);
+
+  useEffect(() => {
+    if (returnVisitCountdown.done && lastClaimResult) {
+      setLastClaimResult(null);
+    }
+  }, [returnVisitCountdown.done, lastClaimResult]);
 
   useEffect(() => {
     if (
@@ -237,13 +246,22 @@ export default function GameModals({
       postSpinPhase !== "win-celebration" &&
       postSpinPhase !== "claim",
   );
+  const showPostClaimCooldown = Boolean(
+    lastClaimResult &&
+      spinStatus &&
+      !spinStatus.canSpin &&
+      spinStatus.nextSpinAt &&
+      !returnVisitCountdown.done,
+  );
+
   const showReturnCooldown = Boolean(
     postSpinPhase === "idle" &&
       spinStatus &&
       !spinStatus.canSpin &&
       spinStatus.nextSpinAt &&
       !returnVisitCountdown.done &&
-      !lastSpinResult,
+      !lastSpinResult &&
+      !lastClaimResult,
   );
 
   const spinBlocked =
@@ -255,6 +273,7 @@ export default function GameModals({
     showResultSplash ||
     showPostSpinLose ||
     showWelcome ||
+    showPostClaimCooldown ||
     showReturnCooldown;
 
   useEffect(() => {
@@ -291,7 +310,7 @@ export default function GameModals({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ walletAddress, spinId }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as ClaimApiResponse & { error?: string };
 
       if (!res.ok) {
         setClaimError(data.error ?? "Claim failed");
@@ -299,6 +318,8 @@ export default function GameModals({
       }
 
       setWalletAddress("");
+      setLastClaimResult(data);
+      await fetchStatus();
       onClaimComplete?.();
     } catch {
       setClaimError("Network error");
@@ -407,6 +428,33 @@ export default function GameModals({
           >
             Continue
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (showPostClaimCooldown && lastClaimResult) {
+    const txUrl = isMockTxSignature(lastClaimResult.txSignature)
+      ? null
+      : solanaTxExplorerUrl(lastClaimResult.txSignature);
+
+    return (
+      <div className="game-modal-backdrop game-modal-backdrop--locked">
+        <div className="game-modal game-modal--prize" role="dialog" aria-modal="true">
+          <p className="game-modal__heading game-modal__heading--win">Prize sent</p>
+          <PrizeWinCard prize={lastClaimResult.prize} />
+          <p className="game-modal__text game-modal__text--highlight">{lastClaimResult.message}</p>
+          {txUrl ? (
+            <a
+              className="game-modal__tx-link"
+              href={txUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View transaction
+            </a>
+          ) : null}
+          <CountdownText targetIso={spinStatus.nextSpinAt} />
         </div>
       </div>
     );

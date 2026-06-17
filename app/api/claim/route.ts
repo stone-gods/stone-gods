@@ -7,7 +7,7 @@ import {
   normalizeSolanaWalletAddress,
 } from "@/lib/solana-wallet";
 import type { ClaimApiResponse } from "@/types/game";
-import { prizeInfoFromSpin } from "@/types/game";
+import { prizeInfoFromSpin, prizeSentMessage } from "@/types/game";
 
 export const runtime = "nodejs";
 
@@ -81,9 +81,7 @@ export async function POST(request: Request) {
     spinId: prizeSpin.id,
     walletAddress: normalizedWallet,
     txSignature,
-    message: prize.number
-      ? `${prize.name} #${prize.number} sent to your wallet!`
-      : `${prize.name} sent to your wallet!`,
+    message: prizeSentMessage(prize),
     prize,
   };
 

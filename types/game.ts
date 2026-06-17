@@ -62,6 +62,15 @@ export type ClaimApiResponse = {
   prize: PrizeInfo;
 };
 
+export function formatPrizeDisplayName(prize: PrizeInfo): string {
+  if (!prize.number || prize.name.includes("#")) return prize.name;
+  return `${prize.name} #${prize.number}`;
+}
+
+export function prizeSentMessage(prize: PrizeInfo): string {
+  return `${formatPrizeDisplayName(prize)} sent to your wallet!`;
+}
+
 export function prizeInfoFromSpin(spin: {
   prizeMintAddress: string | null;
   prizeName: string | null;
