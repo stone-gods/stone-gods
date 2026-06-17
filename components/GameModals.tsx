@@ -312,11 +312,13 @@ export default function GameModals({
       !lastClaimResult,
   );
 
+  const activePendingWinId = lastClaimResult ? null : pendingWinId;
+
   const spinBlocked =
     status === "loading" ||
     status !== "authenticated" ||
     !spinStatus ||
-    Boolean(pendingWinId) ||
+    Boolean(activePendingWinId) ||
     postSpinPhase === "win-celebration" ||
     showResultSplash ||
     showPostSpinLose ||
@@ -367,8 +369,8 @@ export default function GameModals({
 
       setWalletAddress("");
       setLastClaimResult(data);
-      await fetchStatus();
       onClaimComplete?.();
+      await fetchStatus();
     } catch {
       setClaimError("Network error");
     } finally {
@@ -413,7 +415,46 @@ export default function GameModals({
 
   if (!spinStatus) return null;
 
-  if (pendingWinId && pendingPrize) {
+  if (showPostClaimSuccess && lastClaimResult) {
+    const txUrl = isMockTxSignature(lastClaimResult.txSignature)
+      ? null
+      : solanaTxExplorerUrl(lastClaimResult.txSignature);
+    const showCooldown =
+      spinStatus && !spinStatus.canSpin && spinStatus.nextSpinAt && !returnVisitCountdown.done;
+
+    return (
+      <div className="game-modal-backdrop game-modal-backdrop--locked">
+        <div className="game-modal game-modal--prize" role="dialog" aria-modal="true">
+          <p className="game-modal__heading game-modal__heading--win">Prize sent</p>
+          <PrizeWinCard prize={lastClaimResult.prize} />
+          <p className="game-modal__text game-modal__text--highlight">{lastClaimResult.message}</p>
+          {txUrl ? (
+            <a
+              className="game-modal__tx-link"
+              href={txUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View transaction
+            </a>
+          ) : null}
+          {showCooldown ? (
+            <CountdownText targetIso={spinStatus.nextSpinAt} />
+          ) : (
+            <button
+              type="button"
+              className="game-modal__continue-btn"
+              onClick={() => setLastClaimResult(null)}
+            >
+              Continue
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (activePendingWinId && pendingPrize) {
     return (
       <div className="game-modal-backdrop game-modal-backdrop--locked">
         <div className="game-modal game-modal--prize" role="dialog" aria-modal="true">
@@ -437,7 +478,7 @@ export default function GameModals({
           <button
             type="button"
             className="game-modal__claim-btn"
-            onClick={() => void handleClaim(pendingWinId)}
+            onClick={() => void handleClaim(activePendingWinId)}
             disabled={claiming || !walletAddress.trim()}
           >
             {claiming ? "…" : "Claim"}
@@ -476,45 +517,6 @@ export default function GameModals({
           >
             Continue
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (showPostClaimSuccess && lastClaimResult) {
-    const txUrl = isMockTxSignature(lastClaimResult.txSignature)
-      ? null
-      : solanaTxExplorerUrl(lastClaimResult.txSignature);
-    const showCooldown =
-      spinStatus && !spinStatus.canSpin && spinStatus.nextSpinAt && !returnVisitCountdown.done;
-
-    return (
-      <div className="game-modal-backdrop game-modal-backdrop--locked">
-        <div className="game-modal game-modal--prize" role="dialog" aria-modal="true">
-          <p className="game-modal__heading game-modal__heading--win">Prize sent</p>
-          <PrizeWinCard prize={lastClaimResult.prize} />
-          <p className="game-modal__text game-modal__text--highlight">{lastClaimResult.message}</p>
-          {txUrl ? (
-            <a
-              className="game-modal__tx-link"
-              href={txUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View transaction
-            </a>
-          ) : null}
-          {showCooldown ? (
-            <CountdownText targetIso={spinStatus.nextSpinAt} />
-          ) : (
-            <button
-              type="button"
-              className="game-modal__continue-btn"
-              onClick={() => setLastClaimResult(null)}
-            >
-              Continue
-            </button>
-          )}
         </div>
       </div>
     );
