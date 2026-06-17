@@ -239,10 +239,15 @@ export default function GameModals({
   }, [returnVisitCountdown.done, spinStatus, fetchStatus]);
 
   useEffect(() => {
-    if (returnVisitCountdown.done && lastClaimResult) {
+    if (
+      returnVisitCountdown.done &&
+      lastClaimResult &&
+      spinStatus &&
+      !spinStatus.canSpin
+    ) {
       setLastClaimResult(null);
     }
-  }, [returnVisitCountdown.done, lastClaimResult]);
+  }, [returnVisitCountdown.done, lastClaimResult, spinStatus]);
 
   useEffect(() => {
     if (
@@ -295,13 +300,7 @@ export default function GameModals({
       postSpinPhase !== "win-celebration" &&
       postSpinPhase !== "claim",
   );
-  const showPostClaimCooldown = Boolean(
-    lastClaimResult &&
-      spinStatus &&
-      !spinStatus.canSpin &&
-      spinStatus.nextSpinAt &&
-      !returnVisitCountdown.done,
-  );
+  const showPostClaimSuccess = Boolean(lastClaimResult);
 
   const showReturnCooldown = Boolean(
     postSpinPhase === "idle" &&
@@ -322,7 +321,7 @@ export default function GameModals({
     showResultSplash ||
     showPostSpinLose ||
     showWelcome ||
-    showPostClaimCooldown ||
+    showPostClaimSuccess ||
     showReturnCooldown;
 
   useEffect(() => {
@@ -461,7 +460,7 @@ export default function GameModals({
     );
   }
 
-  if (spinStatus.canSpin && !welcomeDismissed) {
+  if (spinStatus.canSpin && !welcomeDismissed && !lastClaimResult) {
     const n = spinStatus.spinsRemaining;
     return (
       <div className="game-modal-backdrop">
@@ -482,10 +481,12 @@ export default function GameModals({
     );
   }
 
-  if (showPostClaimCooldown && lastClaimResult) {
+  if (showPostClaimSuccess && lastClaimResult) {
     const txUrl = isMockTxSignature(lastClaimResult.txSignature)
       ? null
       : solanaTxExplorerUrl(lastClaimResult.txSignature);
+    const showCooldown =
+      spinStatus && !spinStatus.canSpin && spinStatus.nextSpinAt && !returnVisitCountdown.done;
 
     return (
       <div className="game-modal-backdrop game-modal-backdrop--locked">
@@ -503,7 +504,17 @@ export default function GameModals({
               View transaction
             </a>
           ) : null}
-          <CountdownText targetIso={spinStatus.nextSpinAt} />
+          {showCooldown ? (
+            <CountdownText targetIso={spinStatus.nextSpinAt} />
+          ) : (
+            <button
+              type="button"
+              className="game-modal__continue-btn"
+              onClick={() => setLastClaimResult(null)}
+            >
+              Continue
+            </button>
+          )}
         </div>
       </div>
     );

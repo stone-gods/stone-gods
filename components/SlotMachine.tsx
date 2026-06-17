@@ -6,16 +6,13 @@ import ReelSpinSound from "@/components/ReelSpinSound";
 import ReelSymbol from "@/components/ReelSymbol";
 import { playReelStopSound, preloadReelStopSound } from "@/lib/reel-audio";
 import { ALL_SYMBOLS, PAYLINE_INDEX } from "@/lib/symbols";
+import { REEL_STAGGER_MS, SPIN_MS, reelSpinDurationMs } from "@/lib/slot-timing";
 import type { ReelGrid, SpinApiResponse, SpinStatusResponse, SymbolId } from "@/types/game";
+import GiftIcon from "@/components/GiftIcon";
+import PrizeGalleryModal from "@/components/PrizeGalleryModal";
 
 const VISIBLE = 3;
-const SPIN_MS = 5000;
-const REEL_STAGGER_MS = 400;
 const SPIN_CRUISE_DIST = 0.996;
-
-function reelSpinDuration(reelIdx: number): number {
-  return SPIN_MS + reelIdx * REEL_STAGGER_MS;
-}
 const STRIP_FILLER_COUNT = 68;
 
 function buildStrip(column: [SymbolId, SymbolId, SymbolId]): SymbolId[] {
@@ -51,6 +48,7 @@ export default function SlotMachine({
   const [faceH, setFaceH] = useState(88);
   const [stripAnimating, setStripAnimating] = useState([false, false, false]);
   const [spinning, setSpinning] = useState(false);
+  const [prizeGalleryOpen, setPrizeGalleryOpen] = useState(false);
   const pendingSpinRef = useRef<SpinApiResponse | null>(null);
   const reelsWrapRef = useRef<HTMLDivElement>(null);
 
@@ -163,7 +161,7 @@ export default function SlotMachine({
                 const strip = buildStrip(column);
                 const isAnimating = stripAnimating[reelIdx];
                 const scrollY = offsets[reelIdx] ?? 0;
-                const duration = reelSpinDuration(reelIdx);
+                const duration = reelSpinDurationMs(reelIdx);
                 const visibleStart = strip.length - VISIBLE;
                 return (
                   <div key={reelIdx} className="slot__reel-unit">
@@ -235,8 +233,19 @@ export default function SlotMachine({
         />
       </div>
 
+      <PrizeGalleryModal open={prizeGalleryOpen} onClose={() => setPrizeGalleryOpen(false)} />
+
       <div className="slot__ui-layer">
-        <div className="slot__actions slot__actions--single">
+        <div className="slot__actions slot__actions--dual">
+          <button
+            type="button"
+            className="slot__gift"
+            aria-label="Available prizes"
+            disabled={spinning}
+            onClick={() => setPrizeGalleryOpen(true)}
+          >
+            <GiftIcon />
+          </button>
           <button
             type="button"
             className="slot__spin"

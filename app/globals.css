@@ -1240,6 +1240,150 @@
   background: rgba(0, 0, 0, 0.5);
 }
 
+.slot__actions--dual {
+  grid-template-columns: auto 1fr !important;
+  align-items: stretch;
+  gap: 0.65rem;
+}
+
+.slot__actions--dual .slot__spin {
+  max-width: 100%;
+}
+
+.slot__gift {
+  aspect-ratio: 1;
+  height: auto;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  min-width: 0;
+  color: #fff;
+  border: 2px solid #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  touch-action: manipulation;
+  background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+  box-shadow:
+    0 6px 0 #1e3a8a,
+    0 10px 20px rgba(0, 0, 0, 0.9),
+    0 16px 36px rgba(0, 0, 0, 0.75);
+  transition: transform 0.1s, box-shadow 0.1s, filter 0.1s;
+}
+
+.slot__gift svg {
+  width: 52%;
+  height: 52%;
+}
+
+.slot__gift:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.slot__gift:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow:
+    0 2px 0 #1e3a8a,
+    0 6px 16px rgba(0, 0, 0, 0.85),
+    0 10px 24px rgba(0, 0, 0, 0.7);
+}
+
+.slot__gift:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.game-stage .slot__actions--dual {
+  gap: calc(100cqi * 1.2 / 100);
+}
+
+.game-stage .slot__gift {
+  border-width: calc(100cqb * 2 / 686);
+  border-radius: calc(100cqb * 10 / 686);
+  box-shadow:
+    0 calc(100cqb * 6 / 686) 0 #1e3a8a,
+    0 calc(100cqb * 10 / 686) calc(100cqb * 20 / 686) rgba(0, 0, 0, 0.9),
+    0 calc(100cqb * 16 / 686) calc(100cqb * 36 / 686) rgba(0, 0, 0, 0.75);
+}
+
+.game-stage .slot__gift:active:not(:disabled) {
+  transform: translateY(calc(100cqb * 3 / 686));
+  box-shadow:
+    0 calc(100cqb * 2 / 686) 0 #1e3a8a,
+    0 calc(100cqb * 6 / 686) calc(100cqb * 16 / 686) rgba(0, 0, 0, 0.85),
+    0 calc(100cqb * 10 / 686) calc(100cqb * 24 / 686) rgba(0, 0, 0, 0.7);
+}
+
+.prize-gallery-backdrop {
+  z-index: 210;
+}
+
+.prize-gallery {
+  width: min(100%, 28rem);
+  max-height: min(85cqb, 90vh);
+  gap: 0.75rem;
+}
+
+.prize-gallery__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-height: min(55cqb, 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prize-gallery__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(253, 224, 71, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.prize-gallery__image {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0c0a09;
+}
+
+.prize-gallery__name {
+  margin: 0;
+  width: 100%;
+  font-family: system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fef3c7;
+  line-height: 1.25;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.prize-gallery__number {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fde047;
+  letter-spacing: 0.04em;
+}
+
 .slot__actions--single {
   grid-template-columns: 1fr !important;
 }
