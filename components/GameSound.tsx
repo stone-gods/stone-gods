@@ -2,17 +2,16 @@
 
 import { useEffect, useRef } from "react";
 
-const WIN_SOUND_SRC = "/assets/sounds/win.wav";
-
-type WinSoundProps = {
+type GameSoundProps = {
+  src: string;
   active: boolean;
 };
 
-export default function WinSound({ active }: WinSoundProps) {
+export default function GameSound({ src, active }: GameSoundProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    const audio = new Audio(WIN_SOUND_SRC);
+    const audio = new Audio(src);
     audio.preload = "auto";
     audioRef.current = audio;
 
@@ -20,7 +19,7 @@ export default function WinSound({ active }: WinSoundProps) {
       audio.pause();
       audioRef.current = null;
     };
-  }, []);
+  }, [src]);
 
   useEffect(() => {
     if (!active || !audioRef.current) return;

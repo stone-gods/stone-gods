@@ -3,8 +3,8 @@
 import { useRef, useState } from "react";
 import GameModals, { type PostSpinPhase } from "@/components/GameModals";
 import SlotMachine from "@/components/SlotMachine";
+import GameSound from "@/components/GameSound";
 import WinFireworks from "@/components/WinFireworks";
-import WinSound from "@/components/WinSound";
 import type { SpinApiResponse } from "@/types/game";
 
 const RESULT_SPLASH_MS = 3000;
@@ -74,6 +74,10 @@ export default function GameShell() {
   }
 
   const celebratingWin = postSpinPhase === "win-celebration";
+  const playingLossSound =
+    postSpinPhase === "splash" &&
+    lastSpinResult !== null &&
+    lastSpinResult.outcome !== "NFT_WIN";
 
   return (
     <>
@@ -83,7 +87,8 @@ export default function GameShell() {
         celebratingWin={celebratingWin}
       />
       {celebratingWin ? <WinFireworks /> : null}
-      <WinSound active={celebratingWin} />
+      <GameSound src="/assets/sounds/win.wav" active={celebratingWin} />
+      <GameSound src="/assets/sounds/lose.wav" active={playingLossSound} />
       <GameModals
         refreshKey={refreshKey}
         lastSpinResult={lastSpinResult}
