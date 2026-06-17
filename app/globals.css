@@ -276,6 +276,7 @@
   background: #000;
   overflow: hidden;
   touch-action: manipulation;
+  container-type: size;
 }
 
 @supports (height: 100svh) {
@@ -286,13 +287,11 @@
   }
 }
 
-/* Height-first on tall screens; shrink to fit width on tablets (e.g. iPad landscape). */
+/* Fit stage inside viewport; both axes stay explicit for container queries (Safari/iPad). */
 .game-stage {
   position: relative;
-  aspect-ratio: 1024 / 686;
-  width: min(100%, calc(var(--stage-h) * 1024 / 686));
-  max-height: var(--stage-h);
-  height: auto;
+  width: min(100cqw, calc(var(--stage-h) * 1024 / 686));
+  height: min(var(--stage-h), calc(100cqw * 686 / 1024));
   flex-shrink: 0;
   container-type: size;
 }
@@ -396,6 +395,7 @@
   display: flex;
   gap: 7%;
   justify-content: center;
+  align-items: center;
   container-type: inline-size;
 }
 
@@ -702,6 +702,8 @@
 
 .slot__spin,
 .slot__collect {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   padding: 0.875rem;
   font-family: system-ui, sans-serif;
@@ -1255,16 +1257,10 @@
 }
 
 .slot__actions--dual {
-  display: grid !important;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex !important;
+  flex-direction: row;
   align-items: center;
   gap: 0.65rem;
-  --slot-btn-pad-block: 0.875rem;
-  --slot-btn-border: 2px;
-  --slot-btn-font: 1.1rem;
-  --slot-btn-size: calc(
-    2 * var(--slot-btn-pad-block) + var(--slot-btn-font) + 2 * var(--slot-btn-border)
-  );
 }
 
 .slot--layered .slot__actions--dual {
@@ -1272,21 +1268,23 @@
 }
 
 .slot__actions--dual .slot__spin {
-  width: 100%;
+  flex: 1 1 0;
+  width: auto;
   min-width: 0;
   max-width: 100%;
-  flex: unset;
 }
 
 .slot__gift {
+  -webkit-appearance: none;
+  appearance: none;
   box-sizing: border-box;
-  width: var(--slot-btn-size);
-  height: var(--slot-btn-size);
-  min-width: var(--slot-btn-size);
-  max-width: var(--slot-btn-size);
-  flex: none;
-  align-self: center;
-  justify-self: start;
+  flex: 0 0 var(--gift-btn-size, 2.75rem);
+  width: var(--gift-btn-size, 2.75rem);
+  height: var(--gift-btn-size, 2.75rem);
+  min-width: var(--gift-btn-size, 2.75rem);
+  max-width: var(--gift-btn-size, 2.75rem);
+  min-height: var(--gift-btn-size, 2.75rem);
+  max-height: var(--gift-btn-size, 2.75rem);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1327,13 +1325,13 @@
   cursor: not-allowed;
 }
 
+.game-stage .slot__actions--dual .slot__spin {
+  width: auto;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .game-stage .slot__actions--dual {
-  --slot-btn-pad-block: calc(100cqb * 15.4 / 686);
-  --slot-btn-border: calc(100cqb * 2 / 686);
-  --slot-btn-font: calc(100cqi * 5.8 / 100);
-  --slot-btn-size: calc(
-    2 * var(--slot-btn-pad-block) + var(--slot-btn-font) + 2 * var(--slot-btn-border)
-  );
   gap: calc(100cqi * 1.2 / 100);
 }
 
@@ -1342,11 +1340,7 @@
 }
 
 .game-stage .slot__gift {
-  width: var(--slot-btn-size);
-  height: var(--slot-btn-size);
-  min-width: var(--slot-btn-size);
-  max-width: var(--slot-btn-size);
-  border-width: var(--slot-btn-border);
+  border-width: calc(100cqb * 2 / 686);
   border-radius: calc(100cqb * 10 / 686);
   box-shadow:
     0 calc(100cqb * 6 / 686) 0 #1e3a8a,

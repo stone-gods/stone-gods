@@ -51,6 +51,27 @@ export default function SlotMachine({
   const [prizeGalleryOpen, setPrizeGalleryOpen] = useState(false);
   const pendingSpinRef = useRef<SpinApiResponse | null>(null);
   const reelsWrapRef = useRef<HTMLDivElement>(null);
+  const spinRef = useRef<HTMLButtonElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const spin = spinRef.current;
+    const actions = actionsRef.current;
+    if (!spin || !actions) return;
+
+    const syncGiftSize = () => {
+      const height = Math.round(spin.getBoundingClientRect().height);
+      if (height > 0) {
+        actions.style.setProperty("--gift-btn-size", `${height}px`);
+      }
+    };
+
+    syncGiftSize();
+    const observer = new ResizeObserver(syncGiftSize);
+    observer.observe(spin);
+    observer.observe(actions);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const el = reelsWrapRef.current;
@@ -236,7 +257,7 @@ export default function SlotMachine({
       <PrizeGalleryModal open={prizeGalleryOpen} onClose={() => setPrizeGalleryOpen(false)} />
 
       <div className="slot__ui-layer">
-        <div className="slot__actions slot__actions--dual">
+        <div ref={actionsRef} className="slot__actions slot__actions--dual">
           <button
             type="button"
             className="slot__gift"
@@ -247,6 +268,7 @@ export default function SlotMachine({
             <GiftIcon />
           </button>
           <button
+            ref={spinRef}
             type="button"
             className="slot__spin"
             onClick={() => void handleSpin()}
