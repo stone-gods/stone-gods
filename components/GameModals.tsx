@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { isMockTxSignature, solanaTxExplorerUrl } from "@/lib/solana-explorer";
 import { isValidSolanaWalletAddress } from "@/lib/solana-wallet";
@@ -91,12 +91,59 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
-function ResultSplash({ result }: { result: SpinApiResponse }) {
+function ResultSplash({
+  result,
+  onComplete,
+}: {
+  result: SpinApiResponse;
+  onComplete: () => void;
+}) {
   const noSpinsLeft = result.spinsRemaining === 0 || result.canSpinAgainAt !== null;
   const lines = resultSplashText(noSpinsLeft).split("\n");
+  const [stage, setStage] = useState<"enter" | "shown" | "exit">("enter");
+  const completedRef = useRef(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setStage("shown"));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (stage !== "shown") return;
+    const holdTimer = window.setTimeout(() => setStage("exit"), 1200);
+    return () => window.clearTimeout(holdTimer);
+  }, [stage]);
+
+  useEffect(() => {
+    return () => {
+      completedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (stage !== "exit") return;
+    const fallback = window.setTimeout(() => {
+      if (completedRef.current) return;
+      completedRef.current = true;
+      onComplete();
+    }, 500);
+    return () => window.clearTimeout(fallback);
+  }, [stage, onComplete]);
+
+  function handleTransitionEnd(event: React.TransitionEvent<HTMLDivElement>) {
+    if (stage !== "exit" || event.propertyName !== "opacity") return;
+    if (completedRef.current) return;
+    completedRef.current = true;
+    onComplete();
+  }
 
   return (
-    <div className="result-splash" role="status" aria-live="polite">
+    <div
+      className={`result-splash result-splash--${stage}`}
+      role="status"
+      aria-live="polite"
+      onTransitionEnd={handleTransitionEnd}
+    >
       <p className="result-splash__text">
         {lines.map((line, i) => (
           <span key={i} className="result-splash__line">
@@ -130,6 +177,7 @@ type GameModalsProps = {
   postSpinPhase?: PostSpinPhase;
   postSpinDismissed?: boolean;
   onPostSpinDismiss?: () => void;
+  onSplashComplete?: () => void;
   onClaimComplete?: () => void;
   onSpinBlockedChange?: (blocked: boolean) => void;
 };
@@ -140,6 +188,7 @@ export default function GameModals({
   postSpinPhase = "idle",
   postSpinDismissed = false,
   onPostSpinDismiss,
+  onSplashComplete,
   onClaimComplete,
   onSpinBlockedChange,
 }: GameModalsProps) {
@@ -360,7 +409,7 @@ export default function GameModals({
 
   // Result splash — before spinStatus gate so it always shows right after a spin
   if (showResultSplash && lastSpinResult) {
-    return <ResultSplash result={lastSpinResult} />;
+    return <ResultSplash result={lastSpinResult} onComplete={() => onSplashComplete?.()} />;
   }
 
   if (!spinStatus) return null;

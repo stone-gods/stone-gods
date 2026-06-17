@@ -7,7 +7,6 @@ import GameSound from "@/components/GameSound";
 import WinFireworks from "@/components/WinFireworks";
 import type { SpinApiResponse } from "@/types/game";
 
-const RESULT_SPLASH_MS = 3000;
 const WIN_CELEBRATION_MS = 5000;
 
 export default function GameShell() {
@@ -42,20 +41,25 @@ export default function GameShell() {
     }
 
     setRefreshKey((k) => k + 1);
+    setPostSpinPhase("splash");
+  }
+
+  function handleSplashComplete() {
+    const result = lastSpinResult;
+    if (!result) {
+      setPostSpinPhase("idle");
+      return;
+    }
 
     const noSpinsLeft =
       result.spinsRemaining === 0 || result.canSpinAgainAt !== null;
 
-    setPostSpinPhase("splash");
-    phaseTimerRef.current = setTimeout(() => {
-      phaseTimerRef.current = null;
-      if (noSpinsLeft) {
-        setPostSpinPhase("cooldown");
-      } else {
-        setPostSpinPhase("idle");
-        setLastSpinResult(null);
-      }
-    }, RESULT_SPLASH_MS);
+    if (noSpinsLeft) {
+      setPostSpinPhase("cooldown");
+    } else {
+      setPostSpinPhase("idle");
+      setLastSpinResult(null);
+    }
   }
 
   function handlePostSpinDismiss() {
@@ -95,6 +99,7 @@ export default function GameShell() {
         postSpinPhase={postSpinPhase}
         postSpinDismissed={postSpinDismissed}
         onPostSpinDismiss={handlePostSpinDismiss}
+        onSplashComplete={handleSplashComplete}
         onClaimComplete={handleClaimComplete}
         onSpinBlockedChange={setSpinBlocked}
       />
