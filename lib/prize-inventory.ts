@@ -30,8 +30,7 @@ type GetAssetsByOwnerResult = {
 const FUNGIBLE_INTERFACES = new Set(["FungibleAsset", "FungibleToken"]);
 
 function extractPrizeNumber(name: string): string | null {
-  const hashMatch = name.match(/#\s*(\d+)\b/);
-  if (hashMatch?.[1]) return hashMatch[1];
+  if (name.includes("#")) return null;
 
   const trailingMatch = name.match(/\b(\d+)\s*$/);
   return trailingMatch?.[1] ?? null;

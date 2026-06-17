@@ -124,6 +124,7 @@ export function outcomeMessage(
   switch (outcome) {
     case "NFT_WIN":
       if (prize) {
+        if (prize.name.includes("#")) return `You won ${prize.name}!`;
         return prize.number
           ? `You won ${prize.name} #${prize.number}!`
           : `You won ${prize.name}!`;

@@ -14,11 +14,12 @@ import {
 import bs58 from "bs58";
 import { isMockNftClaimEnabled, requirePrizeWalletEnv } from "@/lib/prize-wallet-env";
 import {
-  assertPrizeTokenAccountExists,
+  assertSplTokenAccountExists,
   recipientTokenAddress,
-  resolvePrizeTokenHolding,
-  type PrizeTokenHolding,
+  resolvePrizeAssetForTransfer,
+  type ResolvedPrizeAsset,
 } from "@/lib/prize-token-holding";
+import { transferCoreAsset } from "@/lib/solana-core-transfer";
 
 function userFacingTransferError(err: unknown): string {
   if (!(err instanceof Error)) return "NFT transfer failed";
@@ -31,19 +32,18 @@ function userFacingTransferError(err: unknown): string {
   return message;
 }
 
-async function transferResolvedNft(
+async function transferSplPrize(
   connection: Connection,
   prizeWallet: Keypair,
   recipient: PublicKey,
-  mint: PublicKey,
-  holding: PrizeTokenHolding,
+  asset: Extract<ResolvedPrizeAsset, { kind: "spl" }>,
 ): Promise<string> {
-  await assertPrizeTokenAccountExists(connection, holding);
+  const mint = new PublicKey(asset.mintAddress);
 
-  const sourceAta = holding.tokenAccount;
-  const destAta = recipientTokenAddress(mint, recipient, holding.tokenProgram);
-  const programId = holding.tokenProgram;
+  await assertSplTokenAccountExists(connection, asset.tokenAccount, asset.tokenProgram);
 
+  const destAta = recipientTokenAddress(mint, recipient, asset.tokenProgram);
+  const programId = asset.tokenProgram;
   const tx = new Transaction();
 
   try {
@@ -62,7 +62,14 @@ async function transferResolvedNft(
   }
 
   tx.add(
-    createTransferInstruction(sourceAta, destAta, prizeWallet.publicKey, 1, [], programId),
+    createTransferInstruction(
+      asset.tokenAccount,
+      destAta,
+      prizeWallet.publicKey,
+      1,
+      [],
+      programId,
+    ),
   );
 
   return sendAndConfirmTransaction(connection, tx, [prizeWallet], {
@@ -85,17 +92,26 @@ export async function transferPrizeNft(
   const env = requirePrizeWalletEnv();
   const connection = new Connection(env.rpcUrl, "confirmed");
   const prizeWallet = Keypair.fromSecretKey(bs58.decode(env.privateKey));
-  const mint = new PublicKey(mintAddress);
   const recipient = new PublicKey(recipientAddress);
 
   try {
-    const holding = await resolvePrizeTokenHolding(
+    const asset = await resolvePrizeAssetForTransfer(
       mintAddress,
       env.walletAddress,
       env.rpcUrl,
     );
 
-    return await transferResolvedNft(connection, prizeWallet, recipient, mint, holding);
+    if (asset.kind === "core") {
+      return await transferCoreAsset(
+        env.rpcUrl,
+        prizeWallet,
+        asset.assetAddress,
+        recipientAddress,
+        asset.collectionAddress,
+      );
+    }
+
+    return await transferSplPrize(connection, prizeWallet, recipient, asset);
   } catch (err) {
     throw new Error(userFacingTransferError(err));
   }

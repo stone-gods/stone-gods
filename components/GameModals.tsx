@@ -101,8 +101,13 @@ function ResultSplash({ result }: { result: SpinApiResponse }) {
   );
 }
 
+function formatPrizeDisplayName(prize: PrizeInfo): string {
+  if (!prize.number || prize.name.includes("#")) return prize.name;
+  return `${prize.name} #${prize.number}`;
+}
+
 function PrizeWinCard({ prize }: { prize: PrizeInfo }) {
-  const displayName = prize.number ? `${prize.name} #${prize.number}` : prize.name;
+  const displayName = formatPrizeDisplayName(prize);
 
   return (
     <div className="game-modal__prize">
