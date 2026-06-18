@@ -4,11 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { isMockTxSignature, solanaTxExplorerUrl } from "@/lib/solana-explorer";
 import { isValidSolanaWalletAddress } from "@/lib/solana-wallet";
-import {
-  resolvedClaimWalletAddress,
-  TEMP_FIXED_CLAIM_WALLET,
-  TEMP_FIXED_CLAIM_WALLET_ENABLED,
-} from "@/lib/temp-fixed-claim-wallet";
 import type {
   ClaimApiResponse,
   PrizeInfo,
@@ -202,9 +197,7 @@ export default function GameModals({
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
   const [authConfigured, setAuthConfigured] = useState<boolean | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [walletAddress, setWalletAddress] = useState(
-    TEMP_FIXED_CLAIM_WALLET_ENABLED ? TEMP_FIXED_CLAIM_WALLET : "",
-  );
+  const [walletAddress, setWalletAddress] = useState("");
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [lastClaimResult, setLastClaimResult] = useState<ClaimApiResponse | null>(null);
@@ -355,9 +348,7 @@ export default function GameModals({
   async function handleClaim(spinId: string) {
     setClaimError(null);
 
-    const claimWallet = resolvedClaimWalletAddress(walletAddress);
-
-    if (!isValidSolanaWalletAddress(claimWallet)) {
+    if (!isValidSolanaWalletAddress(walletAddress)) {
       setClaimError("Enter a valid Solana wallet address");
       return;
     }
@@ -367,7 +358,7 @@ export default function GameModals({
       const res = await fetch("/api/claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: claimWallet, spinId }),
+        body: JSON.stringify({ walletAddress, spinId }),
       });
       const data = (await res.json()) as ClaimApiResponse & { error?: string };
 
@@ -376,7 +367,7 @@ export default function GameModals({
         return;
       }
 
-      setWalletAddress(TEMP_FIXED_CLAIM_WALLET_ENABLED ? TEMP_FIXED_CLAIM_WALLET : "");
+      setWalletAddress("");
       setLastClaimResult(data);
       onClaimComplete?.();
       await fetchStatus();
@@ -470,20 +461,15 @@ export default function GameModals({
           <p className="game-modal__heading game-modal__heading--win">You have won</p>
           <PrizeWinCard prize={pendingPrize} />
           <label className="game-modal__label">
-            {TEMP_FIXED_CLAIM_WALLET_ENABLED ? "Prize wallet" : "Enter Solana wallet"}
+            Enter Solana wallet
             <input
               type="text"
-              className={`game-modal__input${TEMP_FIXED_CLAIM_WALLET_ENABLED ? " game-modal__input--readonly" : ""}`}
-              value={TEMP_FIXED_CLAIM_WALLET_ENABLED ? TEMP_FIXED_CLAIM_WALLET : walletAddress}
-              onChange={
-                TEMP_FIXED_CLAIM_WALLET_ENABLED
-                  ? undefined
-                  : (e) => setWalletAddress(e.target.value)
-              }
+              className="game-modal__input"
+              value={walletAddress}
+              onChange={(e) => setWalletAddress(e.target.value)}
               placeholder="Solana wallet"
               autoComplete="off"
               spellCheck={false}
-              readOnly={TEMP_FIXED_CLAIM_WALLET_ENABLED}
             />
           </label>
           {claimError ? (
@@ -493,7 +479,7 @@ export default function GameModals({
             type="button"
             className="game-modal__claim-btn"
             onClick={() => void handleClaim(activePendingWinId)}
-            disabled={claiming || !resolvedClaimWalletAddress(walletAddress).trim()}
+            disabled={claiming || !walletAddress.trim()}
           >
             {claiming ? "…" : "Claim"}
           </button>
