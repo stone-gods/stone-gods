@@ -50,6 +50,25 @@ Set `DATABASE_URL` (pooled Neon URL) in project env. Build runs `prisma generate
 
 To deploy migrations manually: `npx tsx scripts/migrate-deploy.ts`
 
+## Discord login + server membership
+
+Players sign in with Discord OAuth. On first login, users who are not already in the Stone Gods Discord are **auto-joined** via the `guilds.join` scope before auth completes.
+
+### Discord application setup
+
+1. In the [Discord Developer Portal](https://discord.com/developers/applications), use the same app as `AUTH_DISCORD_ID` / `AUTH_DISCORD_SECRET`.
+2. Under **OAuth2**, add redirect URLs for your site (e.g. `https://stone-gods.vercel.app/api/auth/callback/discord`).
+3. Under **Bot**, create a bot and copy the token to `DISCORD_BOT_TOKEN`.
+4. Invite the bot to the Stone Gods server with **Create Instant Invite** permission:
+   `https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=1`
+5. Copy the server (guild) ID to `DISCORD_GUILD_ID` (Developer Mode → right-click server → Copy Server ID).
+
+| Variable | Description |
+|----------|-------------|
+| `DISCORD_GUILD_ID` | Stone Gods Discord server ID |
+| `DISCORD_BOT_TOKEN` | Bot token from the OAuth application |
+| `DISCORD_INVITE_URL` | Optional manual invite link if auto-join fails |
+
 ## NFT prize claim (Solana)
 
 Winners claim via Discord login + Solana wallet address. Set these env vars on Vercel and locally:

@@ -1041,6 +1041,11 @@
   line-height: 1.4;
 }
 
+.game-modal__text--subtle {
+  font-size: 0.8125rem;
+  color: #a8a29e;
+}
+
 .game-modal__text--highlight {
   font-size: 1.0625rem;
   font-weight: 700;

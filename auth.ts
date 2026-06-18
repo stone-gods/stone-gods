@@ -2,7 +2,10 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth from "next-auth";
 import Discord from "next-auth/providers/discord";
 import { getAuthEnv, resolveAuthUrl } from "@/lib/auth-env";
+import { DiscordGuildJoinError, ensureStoneGodsGuildMembership } from "@/lib/discord-guild";
 import { prisma } from "@/lib/prisma";
+
+const DISCORD_SCOPES = "identify email guilds guilds.join";
 
 const resolvedAuthUrl = resolveAuthUrl();
 if (resolvedAuthUrl) {
@@ -19,11 +22,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         Discord({
           clientId: authEnv.discordClientId,
           clientSecret: authEnv.discordClientSecret,
+          authorization: {
+            params: {
+              scope: DISCORD_SCOPES,
+            },
+          },
         }),
       ]
     : [],
   trustHost: true,
   callbacks: {
+    async signIn({ account, profile }) {
+      if (account?.provider !== "discord") return true;
+      if (!account.access_token) return false;
+
+      const discordUserId =
+        (profile as { id?: string } | undefined)?.id ?? account.providerAccountId;
+      if (!discordUserId) return false;
+
+      try {
+        await ensureStoneGodsGuildMembership(discordUserId, account.access_token);
+        return true;
+      } catch (err) {
+        console.error("[auth] Discord guild join failed:", err);
+        if (err instanceof DiscordGuildJoinError) {
+          return "/?authError=discord_guild";
+        }
+        return "/?authError=discord_guild";
+      }
+    },
     session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;

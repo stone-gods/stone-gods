@@ -208,6 +208,16 @@ export default function GameModals({
   );
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("authError") === "discord_guild") {
+      setLoginError(
+        "We couldn't add you to the Stone Gods Discord. Try again, or join the server manually and log in again.",
+      );
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
     void fetch("/api/auth/status")
       .then((res) => res.json())
       .then((data: { configured: boolean }) => setAuthConfigured(data.configured))
@@ -385,7 +395,10 @@ export default function GameModals({
       <div className="game-modal-backdrop">
         <div className="game-modal" role="dialog" aria-modal="true">
           <ModalTitle />
-          <p className="game-modal__text">Sign in with Discord to continue</p>
+          <p className="game-modal__text">Sign in with Discord to play</p>
+          <p className="game-modal__text game-modal__text--subtle">
+            You&apos;ll join the Stone Gods Discord automatically when you log in.
+          </p>
           {authConfigured === false ? (
             <p className="game-modal__text game-modal__text--error">
               Set AUTH_DISCORD_ID and AUTH_DISCORD_SECRET in .env, then restart the dev server.
