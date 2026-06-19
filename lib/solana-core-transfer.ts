@@ -10,6 +10,7 @@ import {
   publicKey,
   signerIdentity,
 } from "@metaplex-foundation/umi";
+import { base58 } from "@metaplex-foundation/umi/serializers";
 import { fromWeb3JsKeypair } from "@metaplex-foundation/umi-web3js-adapters";
 import type { Keypair } from "@solana/web3.js";
 
@@ -38,5 +39,5 @@ export async function transferCoreAsset(
     confirm: { commitment: "confirmed" },
   });
 
-  return String(result.signature);
+  return base58.deserialize(result.signature)[0]!;
 }
