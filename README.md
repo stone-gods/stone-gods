@@ -76,8 +76,8 @@ Winners claim via Discord login + Solana wallet address. Set these env vars on V
 | Variable | Description |
 |----------|-------------|
 | `SOLANA_RPC_URL` | Solana RPC endpoint (e.g. Helius) |
-| `PRIZE_WALLET` | Public key of the wallet holding prize NFTs |
-| `PRIZE_WALLET_PRIVATE_KEY` | Base58-encoded secret key for that wallet (signs transfers) |
+| `PRIZE_WALLET` | Optional public key — derived automatically from `PRIZE_WALLET_PRIVATE_KEY` if omitted |
+| `PRIZE_WALLET_PRIVATE_KEY` | Base58 secret key **or** JSON byte array `[1,2,...]` from solana-keygen (signs transfers) |
 | `MOCK_NFT_CLAIM` | `true` skips on-chain transfer (testing only) |
 
-On win, the server randomly assigns a **non-compressed** NFT from the prize wallet (via Helius DAS — cNFT/spam airdrops are excluded). `PRIZE_WALLET` must match the public key derived from `PRIZE_WALLET_PRIVATE_KEY`.
+On win, the server randomly assigns a **non-compressed** NFT from the prize wallet (via Helius DAS — cNFT/spam airdrops are excluded). If both `PRIZE_WALLET` and `PRIZE_WALLET_PRIVATE_KEY` are set, they must match.

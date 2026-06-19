@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthUserId } from "@/lib/game-session";
 import { fetchEligiblePrizeNfts, getMockPrizeInventory } from "@/lib/prize-inventory";
-import { getPrizeWalletEnv, isMockNftClaimEnabled } from "@/lib/prize-wallet-env";
+import { getPrizeWalletReadEnv, isMockNftClaimEnabled } from "@/lib/prize-wallet-env";
 import { formatPrizeDisplayName, type PrizeInfo } from "@/types/game";
 
 export const runtime = "nodejs";
@@ -26,7 +26,7 @@ export async function GET() {
       return NextResponse.json({ prizes: sortPrizes(getMockPrizeInventory()) });
     }
 
-    const env = getPrizeWalletEnv();
+    const env = getPrizeWalletReadEnv();
     if (!env) {
       return NextResponse.json({ error: "Prize wallet not configured" }, { status: 503 });
     }

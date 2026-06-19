@@ -11,8 +11,7 @@ import {
   sendAndConfirmTransaction,
   Transaction,
 } from "@solana/web3.js";
-import bs58 from "bs58";
-import { isMockNftClaimEnabled, requirePrizeWalletEnv } from "@/lib/prize-wallet-env";
+import { isMockNftClaimEnabled, requirePrizeWalletEnv, requirePrizeWalletKeypair } from "@/lib/prize-wallet-env";
 import {
   assertSplTokenAccountExists,
   recipientTokenAddress,
@@ -91,7 +90,7 @@ export async function transferPrizeNft(
 
   const env = requirePrizeWalletEnv();
   const connection = new Connection(env.rpcUrl, "confirmed");
-  const prizeWallet = Keypair.fromSecretKey(bs58.decode(env.privateKey));
+  const prizeWallet = requirePrizeWalletKeypair();
   const recipient = new PublicKey(recipientAddress);
 
   try {
