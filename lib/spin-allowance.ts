@@ -8,8 +8,8 @@ export function getDailySpinLimit(): number {
 
 export function getSpinCooldownMs(): number {
   const raw = process.env.SPIN_COOLDOWN_HOURS?.trim();
-  const hours = raw ? Number.parseFloat(raw) : 24;
-  return Number.isFinite(hours) && hours > 0 ? hours * MS_PER_HOUR : 24 * MS_PER_HOUR;
+  const hours = raw ? Number.parseFloat(raw) : 12;
+  return Number.isFinite(hours) && hours > 0 ? hours * MS_PER_HOUR : 12 * MS_PER_HOUR;
 }
 
 export type SpinAllowance = {
