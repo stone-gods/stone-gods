@@ -161,6 +161,14 @@
   container-type: size;
 }
 
+/* Portrait: scale to full viewport height (landscape frame crops left/right). */
+@media (orientation: portrait) {
+  .game-stage {
+    width: calc(var(--stage-h) * 1024 / 686);
+    height: var(--stage-h);
+  }
+}
+
 .slot--layered {
   position: absolute;
   inset: 0;
