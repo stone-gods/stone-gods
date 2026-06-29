@@ -15,6 +15,7 @@ export default function GameShell() {
   const [postSpinDismissed, setPostSpinDismissed] = useState(false);
   const [postSpinPhase, setPostSpinPhase] = useState<PostSpinPhase>("idle");
   const [spinBlocked, setSpinBlocked] = useState(true);
+  const [spinError, setSpinError] = useState<string | null>(null);
   const phaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function clearPhaseTimer() {
@@ -87,6 +88,7 @@ export default function GameShell() {
     <>
       <SlotMachine
         onSpinComplete={handleSpinComplete}
+        onSpinError={setSpinError}
         spinDisabled={spinBlocked}
         celebratingWin={celebratingWin}
       />
@@ -98,6 +100,8 @@ export default function GameShell() {
         lastSpinResult={lastSpinResult}
         postSpinPhase={postSpinPhase}
         postSpinDismissed={postSpinDismissed}
+        spinError={spinError}
+        onSpinErrorDismiss={() => setSpinError(null)}
         onPostSpinDismiss={handlePostSpinDismiss}
         onSplashComplete={handleSplashComplete}
         onClaimComplete={handleClaimComplete}

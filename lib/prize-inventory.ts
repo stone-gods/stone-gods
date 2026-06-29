@@ -284,3 +284,30 @@ export async function fetchEligiblePrizeNfts(
     );
   }
 }
+
+const PRIZE_INVENTORY_CACHE_MS = 60_000;
+
+let prizeInventoryCache:
+  | { key: string; fetchedAt: number; inventory: PrizeInfo[] }
+  | null = null;
+
+/** Cached prize inventory — avoids slow Helius calls inside DB transactions. */
+export async function fetchEligiblePrizeNftsCached(
+  ownerAddress: string,
+  rpcUrl: string,
+): Promise<PrizeInfo[]> {
+  const key = `${ownerAddress}:${rpcUrl}`;
+  const now = Date.now();
+
+  if (
+    prizeInventoryCache &&
+    prizeInventoryCache.key === key &&
+    now - prizeInventoryCache.fetchedAt < PRIZE_INVENTORY_CACHE_MS
+  ) {
+    return prizeInventoryCache.inventory;
+  }
+
+  const inventory = await fetchEligiblePrizeNfts(ownerAddress, rpcUrl);
+  prizeInventoryCache = { key, fetchedAt: now, inventory };
+  return inventory;
+}

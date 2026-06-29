@@ -1,7 +1,8 @@
 import type { Prisma } from "@/app/generated/prisma/client";
 import { CLAIM_TX_PENDING } from "@/lib/claim-pending";
-import { getPrizeWalletEnv, isMockNftClaimEnabled } from "@/lib/prize-wallet-env";
-import { selectRandomPrizeNft } from "@/lib/prize-selection";
+import { fetchEligiblePrizeNftsCached, getMockPrizeInventory } from "@/lib/prize-inventory";
+import { getPrizeWalletReadEnv, isMockNftClaimEnabled } from "@/lib/prize-wallet-env";
+import { selectRandomPrizeFromInventory } from "@/lib/prize-selection";
 import type { PrizeInfo } from "@/types/game";
 
 type SpinTx = Prisma.TransactionClient;
@@ -24,18 +25,26 @@ export async function loadReservedPrizeMints(tx: SpinTx): Promise<Set<string>> {
   );
 }
 
-export async function assignPrizeForWin(tx: SpinTx): Promise<PrizeInfo | null> {
-  const walletEnv = isMockNftClaimEnabled()
-    ? {
-        walletAddress: getPrizeWalletEnv()?.walletAddress ?? "mock-prize-wallet",
-        rpcUrl: getPrizeWalletEnv()?.rpcUrl ?? "mock",
-      }
-    : getPrizeWalletEnv();
+/** Load prize inventory outside DB transactions (Helius can take 10–30s). */
+export async function prefetchPrizeInventory(): Promise<PrizeInfo[] | null> {
+  if (isMockNftClaimEnabled()) {
+    return getMockPrizeInventory();
+  }
 
+  const walletEnv = getPrizeWalletReadEnv();
   if (!walletEnv) return null;
 
+  return fetchEligiblePrizeNftsCached(walletEnv.walletAddress, walletEnv.rpcUrl);
+}
+
+export async function assignPrizeForWin(
+  tx: SpinTx,
+  inventory: PrizeInfo[] | null,
+): Promise<PrizeInfo | null> {
+  if (!inventory || inventory.length === 0) return null;
+
   const reservedMints = await loadReservedPrizeMints(tx);
-  return selectRandomPrizeNft(walletEnv.walletAddress, walletEnv.rpcUrl, reservedMints);
+  return selectRandomPrizeFromInventory(inventory, reservedMints);
 }
 
 export function prizeFieldsFromInfo(prize: PrizeInfo) {

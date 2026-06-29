@@ -10,7 +10,7 @@ import {
 } from "@/lib/spin-allowance-server";
 import { isDevForceWin, isDevUnlimitedSpins } from "@/lib/dev";
 import { ensureGameSession, requireAuthUserId } from "@/lib/game-session";
-import { assignPrizeForWin, prizeFieldsFromInfo } from "@/lib/prize-assignment";
+import { assignPrizeForWin, prefetchPrizeInventory, prizeFieldsFromInfo } from "@/lib/prize-assignment";
 import { enrichPrizeInfo } from "@/lib/prize-inventory";
 import { getPrizeWalletEnv } from "@/lib/prize-wallet-env";
 import { prisma } from "@/lib/prisma";
@@ -47,6 +47,8 @@ async function maybeEnrichPrize(prize: PrizeInfo | null): Promise<PrizeInfo | nu
 export async function GET() {
   const userId = await requireAuthUserId();
   if (!userId) return unauthorized();
+
+  void prefetchPrizeInventory().catch(() => {});
 
   const gameSession = await ensureGameSession(userId);
   const now = new Date();
@@ -145,7 +147,10 @@ export async function POST() {
   }
 
   try {
-    const { spin, outcome, reels, prize } = await prisma.$transaction(async (tx) => {
+    const prizeInventory = await prefetchPrizeInventory();
+
+    const { spin, outcome, reels, prize } = await prisma.$transaction(
+      async (tx) => {
       await lockSpinWinPool(tx);
       await lockGameSessionForSpin(tx, gameSession.id);
 
@@ -193,7 +198,7 @@ export async function POST() {
       let prize: PrizeInfo | null = null;
 
       if (result.outcome === "NFT_WIN") {
-        prize = await assignPrizeForWin(tx);
+        prize = await assignPrizeForWin(tx, prizeInventory);
         if (!prize) {
           if (forceWin) {
             throw new ApiError(
@@ -222,7 +227,9 @@ export async function POST() {
       }
 
       return { spin: created, outcome: result.outcome, reels: result.reels, prize };
-    });
+    },
+      { maxWait: 15_000, timeout: 15_000 },
+    );
 
     const displayPrize = prize ? await maybeEnrichPrize(prize) : null;
 

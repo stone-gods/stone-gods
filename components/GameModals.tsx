@@ -176,6 +176,8 @@ type GameModalsProps = {
   lastSpinResult?: SpinApiResponse | null;
   postSpinPhase?: PostSpinPhase;
   postSpinDismissed?: boolean;
+  spinError?: string | null;
+  onSpinErrorDismiss?: () => void;
   onPostSpinDismiss?: () => void;
   onSplashComplete?: () => void;
   onClaimComplete?: () => void;
@@ -187,6 +189,8 @@ export default function GameModals({
   lastSpinResult = null,
   postSpinPhase = "idle",
   postSpinDismissed = false,
+  spinError = null,
+  onSpinErrorDismiss,
   onPostSpinDismiss,
   onSplashComplete,
   onClaimComplete,
@@ -327,6 +331,7 @@ export default function GameModals({
   const spinBlocked =
     status === "loading" ||
     status !== "authenticated" ||
+    Boolean(spinError) ||
     !spinStatus ||
     Boolean(activePendingWinId) ||
     postSpinPhase === "win-celebration" ||
@@ -388,7 +393,34 @@ export default function GameModals({
     }
   }
 
-  if (status === "loading") return null;
+  if (status === "loading") {
+    return (
+      <div className="game-modal-backdrop">
+        <div className="game-modal" role="status" aria-live="polite">
+          <ModalTitle />
+          <p className="game-modal__text">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (spinError) {
+    return (
+      <div className="game-modal-backdrop">
+        <div className="game-modal" role="alertdialog" aria-modal="true">
+          <ModalTitle />
+          <p className="game-modal__text game-modal__text--error">{spinError}</p>
+          <button
+            type="button"
+            className="game-modal__continue-btn"
+            onClick={() => onSpinErrorDismiss?.()}
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (status === "unauthenticated") {
     return (
