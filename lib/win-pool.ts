@@ -28,7 +28,8 @@ export function shouldForceWinInWindow(
 
   const isLastSpinInWindow = completedSpinCount % poolSize === poolSize - 1;
   const winsInPriorFullWindows = Math.floor(completedSpinCount / poolSize);
-  const noWinYetThisWindow = nftWinCount === winsInPriorFullWindows;
+  // Use <= so a prior window that ended with 0 wins (e.g. empty prize pool) still forces.
+  const noWinYetThisWindow = nftWinCount <= winsInPriorFullWindows;
 
   return isLastSpinInWindow && noWinYetThisWindow;
 }

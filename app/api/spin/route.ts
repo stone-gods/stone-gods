@@ -195,6 +195,12 @@ export async function POST() {
       if (result.outcome === "NFT_WIN") {
         prize = await assignPrizeForWin(tx);
         if (!prize) {
+          if (forceWin) {
+            throw new ApiError(
+              503,
+              "Prize pool unavailable — spin not counted. Try again shortly.",
+            );
+          }
           result = generateSpin("LOSS");
         }
       }
