@@ -176,8 +176,6 @@ type GameModalsProps = {
   lastSpinResult?: SpinApiResponse | null;
   postSpinPhase?: PostSpinPhase;
   postSpinDismissed?: boolean;
-  spinError?: string | null;
-  onSpinErrorDismiss?: () => void;
   onPostSpinDismiss?: () => void;
   onSplashComplete?: () => void;
   onClaimComplete?: () => void;
@@ -189,8 +187,6 @@ export default function GameModals({
   lastSpinResult = null,
   postSpinPhase = "idle",
   postSpinDismissed = false,
-  spinError = null,
-  onSpinErrorDismiss,
   onPostSpinDismiss,
   onSplashComplete,
   onClaimComplete,
@@ -210,6 +206,8 @@ export default function GameModals({
   const postSpinCountdown = useCountdown(
     lastSpinResult?.canSpinAgainAt ?? spinStatus?.nextSpinAt ?? null,
   );
+  const postSpinCooldownTarget =
+    lastSpinResult?.canSpinAgainAt ?? spinStatus?.nextSpinAt ?? null;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -268,7 +266,8 @@ export default function GameModals({
       postSpinCountdown.done &&
       postSpinPhase === "cooldown" &&
       lastSpinResult &&
-      !postSpinDismissed
+      !postSpinDismissed &&
+      postSpinCooldownTarget
     ) {
       onPostSpinDismiss?.();
     }
@@ -277,6 +276,7 @@ export default function GameModals({
     postSpinPhase,
     lastSpinResult,
     postSpinDismissed,
+    postSpinCooldownTarget,
     onPostSpinDismiss,
   ]);
 
@@ -305,8 +305,7 @@ export default function GameModals({
     postSpinPhase === "cooldown" &&
     lastSpinResult !== null &&
     !postSpinDismissed &&
-    lastSpinResult.outcome !== "NFT_WIN" &&
-    !postSpinCountdown.done;
+    lastSpinResult.outcome !== "NFT_WIN";
 
   const showWelcome = Boolean(
     spinStatus?.canSpin &&
@@ -331,7 +330,6 @@ export default function GameModals({
   const spinBlocked =
     status === "loading" ||
     status !== "authenticated" ||
-    Boolean(spinError) ||
     !spinStatus ||
     Boolean(activePendingWinId) ||
     postSpinPhase === "win-celebration" ||
@@ -393,34 +391,7 @@ export default function GameModals({
     }
   }
 
-  if (status === "loading") {
-    return (
-      <div className="game-modal-backdrop">
-        <div className="game-modal" role="status" aria-live="polite">
-          <ModalTitle />
-          <p className="game-modal__text">Loading…</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (spinError) {
-    return (
-      <div className="game-modal-backdrop">
-        <div className="game-modal" role="alertdialog" aria-modal="true">
-          <ModalTitle />
-          <p className="game-modal__text game-modal__text--error">{spinError}</p>
-          <button
-            type="button"
-            className="game-modal__continue-btn"
-            onClick={() => onSpinErrorDismiss?.()}
-          >
-            OK
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (status === "loading") return null;
 
   if (status === "unauthenticated") {
     return (
@@ -538,9 +509,7 @@ export default function GameModals({
       <div className="game-modal-backdrop game-modal-backdrop--locked">
         <div className="game-modal" role="dialog" aria-modal="true">
           <p className="game-modal__heading game-modal__heading--lose">0 spins remaining</p>
-          <CountdownText
-            targetIso={lastSpinResult.canSpinAgainAt ?? spinStatus.nextSpinAt}
-          />
+          <CountdownText targetIso={postSpinCooldownTarget} />
         </div>
       </div>
     );

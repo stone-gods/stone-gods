@@ -147,7 +147,7 @@ export async function POST() {
   }
 
   try {
-    const prizeInventory = await prefetchPrizeInventory();
+    const prizeInventoryPromise = prefetchPrizeInventory();
 
     const { spin, outcome, reels, prize } = await prisma.$transaction(
       async (tx) => {
@@ -198,7 +198,8 @@ export async function POST() {
       let prize: PrizeInfo | null = null;
 
       if (result.outcome === "NFT_WIN") {
-        prize = await assignPrizeForWin(tx, prizeInventory);
+        const inventory = await prizeInventoryPromise;
+        prize = await assignPrizeForWin(tx, inventory);
         if (!prize) {
           if (forceWin) {
             throw new ApiError(
@@ -222,16 +223,17 @@ export async function POST() {
       if (!unlimited) {
         await tx.gameSession.update({
           where: { id: gameSession.id },
-          data: { lastSpinAt: now },
+          data: { lastSpinAt: new Date() },
         });
       }
 
       return { spin: created, outcome: result.outcome, reels: result.reels, prize };
     },
-      { maxWait: 15_000, timeout: 15_000 },
+      { maxWait: 15_000, timeout: 45_000 },
     );
 
     const displayPrize = prize ? await maybeEnrichPrize(prize) : null;
+    const afterSpinAt = new Date();
 
     if (unlimited) {
       return NextResponse.json({
@@ -245,7 +247,7 @@ export async function POST() {
       });
     }
 
-    const updatedAllowance = await getSpinAllowanceForSession(session, now);
+    const updatedAllowance = await getSpinAllowanceForSession(session, afterSpinAt);
     const canSpinAgain = updatedAllowance.canSpin;
 
     return NextResponse.json({

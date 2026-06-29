@@ -30,14 +30,12 @@ function stripOffset(strip: SymbolId[], faceH: number): number {
 
 type SlotMachineProps = {
   onSpinComplete?: (result: SpinApiResponse) => void;
-  onSpinError?: (message: string) => void;
   spinDisabled?: boolean;
   celebratingWin?: boolean;
 };
 
 export default function SlotMachine({
   onSpinComplete,
-  onSpinError,
   spinDisabled = false,
   celebratingWin = false,
 }: SlotMachineProps) {
@@ -148,16 +146,11 @@ export default function SlotMachine({
 
     try {
       const res = await fetch("/api/spin", { method: "POST" });
-      const data = (await res.json()) as SpinApiResponse & { error?: string };
+      const data = await res.json();
 
       if (!res.ok) {
         setStripAnimating([false, false, false]);
         setSpinning(false);
-        onSpinError?.(
-          res.status === 401
-            ? "Sign in with Discord to spin."
-            : (data.error ?? "Spin failed. Please try again."),
-        );
         return;
       }
 
@@ -167,7 +160,6 @@ export default function SlotMachine({
     } catch {
       setStripAnimating([false, false, false]);
       setSpinning(false);
-      onSpinError?.("Network error. Please try again.");
     }
   }
 
